@@ -5,11 +5,18 @@ from strategies.strategies import MovingAverageCrossover
 from backtester.backtester import run_backtest
 import pandas as pd
 
-app = FastAPI()
+app = FastAPI(
+    title="Algorithmic Trading Platform API",
+    description="API for backtesting and simulating trading strategies.",
+    version="0.1.0",
+)
 
-@app.get("/health") 
-def health_check(): 
-    return {"message": "ALGONEX is running"}
+
+@app.get("/health", summary="Health Check")
+def health_check():
+    """Check if the API is running."""
+    return {"status": "ok"}
+
 
 @app.get("/")
 def root():
