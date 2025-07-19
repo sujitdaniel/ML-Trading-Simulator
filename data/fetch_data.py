@@ -15,13 +15,23 @@ def get_stock_data(ticker: str, start: str, end: str, interval: str = '1d') -> p
     # Try to load from disk first for efficiency
     if os.path.exists(save_path):
         print(f'Loading cached data: {save_path}')
-        return pd.read_csv(save_path, index_col=0, parse_dates=True)
+        return pd.read_csv(save_path, skiprows=2, header=None, index_col=0, parse_dates=True)
     
     print(f'Downloading data for {ticker} from {start} to {end}...')
     df = yf.download(ticker, start=start, end=end, interval=interval)
     if df.empty:
         raise ValueError(f'No data returned for {ticker} in date range.')
-    df.to_csv(save_path)
+    
+    # Format the CSV to match the expected structure
+    with open(save_path, 'w') as f:
+        # Write header rows to match existing format
+        f.write("Price,Close,High,Low,Open,Volume\n")
+        f.write(f"Ticker,{ticker},{ticker},{ticker},{ticker},{ticker}\n")
+        f.write("Date,,,,,\n")
+        
+        # Write the data
+        df.to_csv(f, header=False)
+    
     print(f'Saved to {save_path}')
     return df
 
