@@ -34,11 +34,8 @@ class MovingAverageCrossover(Strategy):
         )
 
         # Generate signal when short MA crosses above long MA
-        signals["signal"][self.short_window :] = (
-            signals["short_mavg"][self.short_window :]
-            > signals["long_mavg"][self.short_window :]
-        ).astype(float)
-
+        signals['signal'][self.short_window:] = (signals['short_mavg'][self.short_window:] > signals['long_mavg'][self.short_window:]).astype(float)
+        
         # Generate trading orders (1 for buy, -1 for sell)
         signals["positions"] = signals["signal"].diff()
         return signals

@@ -11,18 +11,17 @@ class TradingEngine:
         self.trades = []
 
     def _load_data(self, filepath: str) -> pd.DataFrame:
-        # Skip the first 2 rows (headers) and use the 3rd row as column names
-        df = pd.read_csv(filepath, skiprows=3, index_col=0, parse_dates=True)
-        # Rename columns to match expected format
-        df.columns = ['Price', 'Close', 'High', 'Low', 'Open', 'Volume']
+        # Read the CSV file, skipping the first 3 header rows
+        df = pd.read_csv(filepath, skiprows=3, header=None, index_col=0, parse_dates=True)
+        df.columns = ['Close', 'High', 'Low', 'Open', 'Volume']
         return df
 
     def run(self):
         """Runs the strategy and generates a log of trades."""
         signals = self.strategy.generate_signals(self.data)
         for i in range(len(signals)):
-            if signals["positions"][i] == 1.0:  # Buy signal
-                self.trades.append(("BUY", self.data.index[i], self.data["Close"][i]))
-            elif signals["positions"][i] == -1.0:  # Sell signal
-                self.trades.append(("SELL", self.data.index[i], self.data["Close"][i]))
+            if signals["positions"].iloc[i] == 1.0:  # Buy signal
+                self.trades.append(("BUY", self.data.index[i], self.data["Close"].iloc[i]))
+            elif signals["positions"].iloc[i] == -1.0:  # Sell signal
+                self.trades.append(("SELL", self.data.index[i], self.data["Close"].iloc[i]))
         return self.trades

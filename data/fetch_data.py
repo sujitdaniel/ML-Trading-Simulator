@@ -27,5 +27,5 @@ def get_stock_data(ticker: str, start: str, end: str, interval: str = '1d') -> p
 
 if __name__ == '__main__':
     # Example usage:
-    df = get_stock_data('AAPL', '2022-01-01', '2023-01-01', '1d')
+    df = get_stock_data('TSLA', '2022-01-01', '2023-01-01', '1d')
     print(df.head())
