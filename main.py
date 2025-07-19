@@ -1,0 +1,40 @@
+# backend/main.py
+from fastapi import FastAPI
+from strategies.engine import TradingEngine
+from strategies.strategies import MovingAverageCrossover
+from backtester.backtester import run_backtest
+import pandas as pd
+
+app = FastAPI()
+
+@app.get("/health") 
+def health_check(): 
+    return {"message": "ALGONEX is running"}
+
+@app.get("/")
+def root():
+    return {"message": "Welcome to ALGONEX"}
+
+
+@app.post("/backtest/{ticker}", summary="Run a backtest for a given ticker")
+def post_backtest(ticker: str):
+    """
+    Runs a backtest using the Moving Average Crossover strategy.
+    """
+    # 1. Initialize Strategy and Engine
+    strategy = MovingAverageCrossover(short_window=50, long_window=200)
+    engine = TradingEngine(strategy=strategy, ticker=f"{ticker.upper()}")
+
+    # 2. Run the engine to get trades
+    trades = engine.run()
+    
+    # 3. Run the backtester on the trades
+    performance_metrics = run_backtest(trades)
+
+    return {
+        "ticker": ticker,
+        "strategy": "Moving Average Crossover",
+        "performance": performance_metrics
+    }
+
+#   **Test:** Run `uvicorn main:app --reload`. Use a tool like Postman or `curl` to send a POST request to `http://127.0.0.1:8000/backtest/AAPL`. You should get a JSON response with performance metrics.
