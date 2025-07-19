@@ -10,7 +10,7 @@ def get_stock_data(ticker: str, start: str, end: str, interval: str = '1d') -> p
     """
     save_dir = 'data/raw'
     os.makedirs(save_dir, exist_ok=True)
-    save_path = f'{save_dir}/{ticker}_{start}_{end}_{interval}.csv'
+    save_path = f'{save_dir}/{ticker}.csv'
     
     # Try to load from disk first for efficiency
     if os.path.exists(save_path):

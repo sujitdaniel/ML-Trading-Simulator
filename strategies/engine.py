@@ -4,14 +4,18 @@ from .strategies import Strategy
 
 
 class TradingEngine:
-    def __init__(self, strategy: Strategy, ticker: str, data_path: str = "./data"):
+    def __init__(self, strategy: Strategy, ticker: str, data_path: str = "./data/raw"):
         self.strategy = strategy
         self.ticker = ticker
         self.data = self._load_data(f"{data_path}/{ticker}.csv")
         self.trades = []
 
     def _load_data(self, filepath: str) -> pd.DataFrame:
-        return pd.read_csv(filepath, index_col="Date", parse_dates=True)
+        # Skip the first 2 rows (headers) and use the 3rd row as column names
+        df = pd.read_csv(filepath, skiprows=3, index_col=0, parse_dates=True)
+        # Rename columns to match expected format
+        df.columns = ['Price', 'Close', 'High', 'Low', 'Open', 'Volume']
+        return df
 
     def run(self):
         """Runs the strategy and generates a log of trades."""
