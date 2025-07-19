@@ -58,61 +58,112 @@ engine = TradingEngine(triple_strategy, "AAPL")
 trades = engine.run()
 ```
 
-## Available Indicators
+## 📊 **Available Indicators**
 
-### 1. Moving Average Crossover (`ma`)
-- **Parameters**: `short_window`, `long_window`
+### 1. **Moving Average Crossover** (`ma`)
+- **Class**: `MovingAverageIndicator`
+- **Parameters**: 
+  - `short_window` (default: 40)
+  - `long_window` (default: 100)
 - **Description**: Generates signals when short MA crosses above/below long MA
-- **Default**: `short_window=40`, `long_window=100`
+- **Signal Logic**: Buy when short MA > long MA, Sell when short MA < long MA
 
-```python
-ma_strategy = StrategyBuilder.create_single_indicator_strategy(
-    'ma', 
-    short_window=20, 
-    long_window=50
-)
-```
-
-### 2. Relative Strength Index (`rsi`)
-- **Parameters**: `period`, `overbought`, `oversold`
+### 2. **Relative Strength Index** (`rsi`)
+- **Class**: `RSIIndicator`
+- **Parameters**: 
+  - `period` (default: 14)
+  - `overbought` (default: 70)
+  - `oversold` (default: 30)
 - **Description**: Generates buy signals when oversold, sell signals when overbought
-- **Default**: `period=14`, `overbought=70`, `oversold=30`
+- **Signal Logic**: Buy when RSI < oversold, Sell when RSI > overbought
 
-```python
-rsi_strategy = StrategyBuilder.create_single_indicator_strategy(
-    'rsi', 
-    period=10, 
-    overbought=75, 
-    oversold=25
-)
-```
-
-### 3. Bollinger Bands (`bollinger`)
-- **Parameters**: `window`, `num_std`
+### 3. **Bollinger Bands** (`bollinger`)
+- **Class**: `BollingerBandsIndicator`
+- **Parameters**: 
+  - `window` (default: 20)
+  - `num_std` (default: 2)
 - **Description**: Generates signals based on price position within bands
-- **Default**: `window=20`, `num_std=2`
+- **Signal Logic**: Buy when price near lower band, Sell when price near upper band
 
+### 4. **Mean Reversion** (`mean_reversion`)
+- **Class**: `MeanReversionIndicator`
+- **Parameters**: 
+  - `window` (default: 20)
+  - `entry_z` (default: 1.0)
+  - `exit_z` (default: 0.0)
+- **Description**: Generates signals based on price deviation from mean using z-score
+- **Signal Logic**: Buy when z-score < -entry_z, Sell when z-score > entry_z
+
+### 5. **Money Flow Index** (`mfi`)
+- **Class**: `MoneyFlowIndexIndicator`
+- **Parameters**: 
+  - `period` (default: 14)
+  - `overbought` (default: 80)
+  - `oversold` (default: 20)
+- **Description**: Combines price and volume data to identify overbought/oversold conditions
+- **Signal Logic**: Buy when MFI < oversold, Sell when MFI > overbought
+
+## 🔧 **How to Use Each Indicator**
+
+### **Single Indicator Usage**
 ```python
-bb_strategy = StrategyBuilder.create_single_indicator_strategy(
-    'bollinger', 
-    window=15, 
-    num_std=1.5
+from strategies.engine import StrategyBuilder
+
+# Moving Average
+ma_strategy = StrategyBuilder.create_single_indicator_strategy('ma', short_window=20, long_window=50)
+
+# RSI
+rsi_strategy = StrategyBuilder.create_single_indicator_strategy('rsi', period=14, overbought=75, oversold=25)
+
+# Bollinger Bands
+bb_strategy = StrategyBuilder.create_single_indicator_strategy('bollinger', window=20, num_std=2)
+
+# Mean Reversion
+mr_strategy = StrategyBuilder.create_single_indicator_strategy('mean_reversion', window=30, entry_z=1.5, exit_z=0.5)
+
+# Money Flow Index
+mfi_strategy = StrategyBuilder.create_single_indicator_strategy('mfi', period=14, overbought=80, oversold=20)
+
+### **Combination Usage**
+```python
+# Dual indicators
+dual_strategy = StrategyBuilder.create_dual_indicator_strategy(
+    'ma', 'rsi',
+    weight1=0.6, weight2=0.4,
+    ind1_short_window=20, ind1_long_window=50,
+    ind2_period=14
+)
+
+# Triple indicators
+triple_strategy = StrategyBuilder.create_triple_indicator_strategy(
+    'ma', 'rsi', 'bollinger',
+    weight1=0.4, weight2=0.3, weight3=0.3,
+    ind1_short_window=20, ind1_long_window=50,
+    ind2_period=14,
+    ind3_window=20, ind3_num_std=2
 )
 ```
 
-### 4. Mean Reversion (`mean_reversion`)
-- **Parameters**: `window`, `entry_z`, `exit_z`
-- **Description**: Generates signals based on price deviation from mean
-- **Default**: `window=20`, `entry_z=1.0`, `exit_z=0.0`
+## 📈 **Indicator Characteristics**
 
-```python
-mr_strategy = StrategyBuilder.create_single_indicator_strategy(
-    'mean_reversion', 
-    window=30, 
-    entry_z=1.5, 
-    exit_z=0.5
-)
-```
+| Indicator | Best For | Sensitivity | Timeframe |
+|-----------|----------|-------------|-----------|
+| **MA Crossover** | Trend following | Medium | Medium to Long |
+| **RSI** | Momentum/Reversal | High | Short to Medium |
+| **Bollinger Bands** | Volatility/Mean reversion | Medium | Short to Medium |
+| **Mean Reversion** | Mean reversion | High | Short to Medium |
+| **Money Flow Index** | Volume-based momentum | High | Short to Medium |
+
+## 🎯 **Recommended Combinations**
+
+1. **Conservative**: RSI + Bollinger Bands (equal weights)
+2. **Trend Following**: MA + RSI (MA higher weight)
+3. **Aggressive**: All three indicators with equal weights
+4. **Volatility Trading**: Bollinger Bands + Mean Reversion
+5. **Volume-Based**: MFI + RSI (volume confirmation)
+6. **Comprehensive**: MA + MFI + Bollinger Bands (trend + volume + volatility)
+
+All indicators are designed to work together seamlessly, and you can combine any 1-3 of them with custom weights and parameters to create your ideal trading strategy!
 
 ## Advanced Usage
 

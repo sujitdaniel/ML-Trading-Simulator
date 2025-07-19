@@ -2,7 +2,7 @@
 import pandas as pd
 from .strategies import (
     Strategy, DefaultStrategy, CompositeStrategy,
-    MovingAverageIndicator, RSIIndicator, BollingerBandsIndicator, MeanReversionIndicator
+    MovingAverageIndicator, RSIIndicator, BollingerBandsIndicator, MeanReversionIndicator, MoneyFlowIndexIndicator
 )
 from typing import List, Tuple, Optional
 
@@ -140,6 +140,8 @@ class StrategyBuilder:
             return BollingerBandsIndicator(**kwargs)
         elif indicator_type == 'mean_reversion':
             return MeanReversionIndicator(**kwargs)
+        elif indicator_type == 'mfi':
+            return MoneyFlowIndexIndicator(**kwargs)
         else:
             raise ValueError(f"Unknown indicator type: {indicator_type}")
 

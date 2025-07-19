@@ -125,6 +125,52 @@ class MeanReversionIndicator(Indicator):
         return signals
 
 
+class MoneyFlowIndexIndicator(Indicator):
+    """Money Flow Index indicator that combines price and volume data."""
+    
+    def __init__(self, period: int = 14, overbought: float = 80, oversold: float = 20):
+        self.period = period
+        self.overbought = overbought
+        self.oversold = oversold
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        # Calculate typical price
+        typical_price = (data['High'] + data['Low'] + data['Close']) / 3
+        
+        # Calculate raw money flow
+        raw_money_flow = typical_price * data['Volume']
+        
+        # Determine positive and negative money flow
+        positive_flow = pd.Series(0.0, index=data.index)
+        negative_flow = pd.Series(0.0, index=data.index)
+        
+        # Compare current typical price with previous
+        price_diff = typical_price.diff()
+        positive_flow.loc[price_diff > 0] = raw_money_flow.loc[price_diff > 0]
+        negative_flow.loc[price_diff < 0] = raw_money_flow.loc[price_diff < 0]
+        
+        # Calculate positive and negative money flow sums
+        positive_mf = positive_flow.rolling(window=self.period, min_periods=1).sum()
+        negative_mf = negative_flow.rolling(window=self.period, min_periods=1).sum()
+        
+        # Calculate money ratio
+        money_ratio = positive_mf / (negative_mf + 1e-10)
+        
+        # Calculate Money Flow Index
+        mfi = 100 - (100 / (1 + money_ratio))
+        
+        return mfi
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        mfi = self.calculate(data)
+        
+        # Buy when MFI is oversold, sell when overbought
+        signals.loc[mfi < self.oversold] = 1.0  # Buy signal
+        signals.loc[mfi > self.overbought] = -1.0  # Sell signal
+        return signals
+
+
 class CompositeStrategy(Strategy):
     """A strategy that combines multiple indicators with configurable weights."""
     

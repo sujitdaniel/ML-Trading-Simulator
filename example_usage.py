@@ -85,6 +85,19 @@ def run_strategy_analysis(ticker: str = "AAPL"):
     print(f"   Total trades: {summary['total_trades']}")
     print(f"   Buy trades: {summary['buy_trades']}")
     print(f"   Sell trades: {summary['sell_trades']}\n")
+    
+    # Example 6: Money Flow Index Strategy
+    print("6. Money Flow Index Strategy")
+    mfi_strategy = StrategyBuilder.create_single_indicator_strategy(
+        'mfi', 
+        period=14, overbought=80, oversold=20
+    )
+    engine = TradingEngine(mfi_strategy, ticker)
+    trades = engine.run()
+    summary = engine.get_trade_summary()
+    print(f"   Total trades: {summary['total_trades']}")
+    print(f"   Buy trades: {summary['buy_trades']}")
+    print(f"   Sell trades: {summary['sell_trades']}\n")
 
 
 def demonstrate_custom_strategy():
@@ -149,6 +162,11 @@ def show_available_indicators():
             'name': 'Mean Reversion (Z-Score)',
             'params': ['window', 'entry_z', 'exit_z'],
             'description': 'Generates signals based on price deviation from mean'
+        },
+        'mfi': {
+            'name': 'Money Flow Index',
+            'params': ['period', 'overbought', 'oversold'],
+            'description': 'Combines price and volume to identify overbought/oversold conditions'
         }
     }
     
