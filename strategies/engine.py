@@ -1,5 +1,6 @@
 # backend/core/engine.py
 import pandas as pd
+from pathlib import Path
 from .strategies import (
     Strategy, DefaultStrategy, CompositeStrategy,
     MovingAverageIndicator, RSIIndicator, BollingerBandsIndicator, MeanReversionIndicator, MoneyFlowIndexIndicator,
@@ -7,61 +8,254 @@ from .strategies import (
     MACDIndicator, OBVIndicator, EMAIndicator, VWAPIndicator, ATRIndicator, IBSIndicator, FibonacciRetracementIndicator,
     PPOIndicator, ADXIndicator, StandardDeviationIndicator, RVIIndicator
 )
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 
 
 class TradingEngine:
-    def __init__(self, strategy: Strategy, ticker: str, data_path: str = "./data/raw"):
+    def __init__(self, strategy: Strategy, ticker: str, data_file: str = None, initial_capital: float = 10000.0):
         self.strategy = strategy
         self.ticker = ticker
-        self.data = self._load_data(f"{data_path}/{ticker}.csv")
+        self.data_file = data_file
+        self.initial_capital = initial_capital
+        self.data = None
         self.trades = []
         self.signals = None
+        self.portfolio_value = initial_capital
+        self._load_data()
 
-    def _load_data(self, filepath: str) -> pd.DataFrame:
-        # Read the CSV file, skipping the first 3 header rows
-        df = pd.read_csv(filepath, skiprows=3, header=None, index_col=0, parse_dates=True)
-        df.columns = ['Close', 'High', 'Low', 'Open', 'Volume']
-        return df
-
-    def run(self):
-        """Runs the strategy and generates a log of trades."""
-        self.signals = self.strategy.generate_signals(self.data)
-        self.trades = []
+    def _load_data(self) -> None:
+        """Load and preprocess data efficiently."""
+        if self.data_file:
+            filepath = Path(self.data_file)
+        else:
+            # Fallback to static data
+            filepath = Path("./data/raw") / f"{self.ticker}.csv"
         
-        for i in range(len(self.signals)):
-            if self.signals["positions"].iloc[i] == 1.0:  # Buy signal
-                self.trades.append(("BUY", self.data.index[i], self.data["Close"].iloc[i]))
-            elif self.signals["positions"].iloc[i] == -1.0:  # Sell signal
-                self.trades.append(("SELL", self.data.index[i], self.data["Close"].iloc[i]))
+        if not filepath.exists():
+            raise FileNotFoundError(f"Data file not found: {filepath}")
+        
+        # Optimized data loading with specific dtypes and parsing
+        try:
+            # Read CSV with optimized settings
+            df = pd.read_csv(
+                filepath, 
+                skiprows=3, 
+                header=None, 
+                index_col=0, 
+                parse_dates=True
+            )
+            
+            # Handle different column counts
+            if len(df.columns) == 7:  # Old format: Date, Open, High, Low, Close, Volume, Dividends
+                df.columns = ['Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits']
+            elif len(df.columns) == 6:  # New format: Date, Open, High, Low, Close, Volume
+                df.columns = ['Open', 'High', 'Low', 'Close', 'Volume', 'Dividends']
+            else:
+                # Use only the columns we need
+                df = df.iloc[:, :5]  # Take first 5 columns: Open, High, Low, Close, Volume
+                df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+            
+            # Ensure data is sorted by date
+            df.sort_index(inplace=True)
+            
+            # Remove any rows with NaN values
+            df.dropna(inplace=True)
+            
+            self.data = df
+            
+        except Exception as e:
+            raise ValueError(f"Error loading data from {filepath}: {e}")
+
+    def run(self) -> List[Tuple[str, pd.Timestamp, float]]:
+        """Runs the strategy and generates a log of trades efficiently."""
+        if self.data is None or self.data.empty:
+            raise ValueError("No data available for analysis")
+        
+        print(f"Running strategy on {len(self.data)} data points")
+        print(f"Data range: {self.data.index.min()} to {self.data.index.max()}")
+        
+        # Generate signals
+        self.signals = self.strategy.generate_signals(self.data)
+        
+        # Efficiently extract trades using vectorized operations
+        self.trades = self._extract_trades()
+        
         return self.trades
     
-    def get_signals(self):
+    def _extract_trades(self) -> List[Tuple[str, pd.Timestamp, float]]:
+        """Extract trades efficiently using vectorized operations."""
+        if self.signals is None or 'positions' not in self.signals.columns:
+            return []
+        
+        trades = []
+        positions = self.signals['positions']
+        
+        # Find buy and sell signals efficiently
+        buy_signals = positions == 1.0
+        sell_signals = positions == -1.0
+        
+        # Get indices where signals occur
+        buy_indices = buy_signals[buy_signals].index
+        sell_indices = sell_signals[sell_signals].index
+        
+        # Create trades efficiently
+        for idx in buy_indices:
+            trades.append(("BUY", idx, self.data.loc[idx, "Close"]))
+        
+        for idx in sell_indices:
+            trades.append(("SELL", idx, self.data.loc[idx, "Close"]))
+        
+        return trades
+    
+    def get_signals(self) -> pd.DataFrame:
         """Returns the generated signals DataFrame."""
         if self.signals is None:
             self.run()
         return self.signals
     
-    def get_trade_summary(self):
-        """Returns a summary of the trading performance."""
+    def filter_data_by_date_range(self, start_date, end_date):
+        """Filter data to the specified date range."""
+        if self.data is not None and not self.data.empty:
+            original_length = len(self.data)
+            mask = (self.data.index >= pd.Timestamp(start_date)) & (self.data.index <= pd.Timestamp(end_date))
+            self.data = self.data.loc[mask]
+            print(f"Filtered data from {original_length} to {len(self.data)} rows for date range {start_date} to {end_date}")
+            print(f"Data range after filtering: {self.data.index.min()} to {self.data.index.max()}")
+
+    def get_trade_summary(self) -> Dict[str, int]:
+        """Returns a summary of the trading performance efficiently."""
         if not self.trades:
             self.run()
         
         if not self.trades:
             return {"total_trades": 0, "buy_trades": 0, "sell_trades": 0}
         
-        buy_trades = [trade for trade in self.trades if trade[0] == "BUY"]
-        sell_trades = [trade for trade in self.trades if trade[0] == "SELL"]
+        # Count trades efficiently using list comprehension
+        buy_trades = sum(1 for trade in self.trades if trade[0] == "BUY")
+        sell_trades = sum(1 for trade in self.trades if trade[0] == "SELL")
         
         return {
             "total_trades": len(self.trades),
-            "buy_trades": len(buy_trades),
-            "sell_trades": len(sell_trades)
+            "buy_trades": buy_trades,
+            "sell_trades": sell_trades
+        }
+
+    def calculate_performance_metrics(self) -> Dict[str, float]:
+        """Calculate real performance metrics from trades."""
+        if not self.trades:
+            return {
+                "win_rate": 0.0,
+                "total_return": 0.0,
+                "sharpe_ratio": 0.0,
+                "max_drawdown": 0.0,
+                "final_portfolio_value": self.initial_capital,
+                "total_profit_loss": 0.0
+            }
+        
+        # Calculate returns from trades with proper portfolio tracking
+        position = 0  # 0 = no position, 1 = long position
+        entry_price = 0
+        shares_held = 0
+        returns = []
+        equity_curve = [self.initial_capital]
+        cash = self.initial_capital
+        
+        for trade in self.trades:
+            action, date, price = trade
+            
+            if action == "BUY" and position == 0:
+                # Enter long position
+                position = 1
+                entry_price = price
+                shares_held = cash / price
+                cash = 0
+            elif action == "SELL" and position == 1:
+                # Exit long position
+                position = 0
+                cash = shares_held * price
+                trade_return = (price - entry_price) / entry_price
+                returns.append(trade_return)
+                shares_held = 0
+                
+                # Update equity curve
+                current_equity = cash
+                equity_curve.append(current_equity)
+        
+        # Calculate final portfolio value
+        if position == 1:
+            # Still holding position at end
+            final_portfolio_value = shares_held * self.trades[-1][2]  # Last trade price
+        else:
+            final_portfolio_value = cash
+        
+        total_profit_loss = final_portfolio_value - self.initial_capital
+        
+        if not returns:
+            return {
+                "win_rate": 0.0,
+                "total_return": 0.0,
+                "sharpe_ratio": 0.0,
+                "max_drawdown": 0.0,
+                "final_portfolio_value": final_portfolio_value,
+                "total_profit_loss": total_profit_loss
+            }
+        
+        # Calculate metrics
+        winning_trades = sum(1 for r in returns if r > 0)
+        win_rate = winning_trades / len(returns) if returns else 0.0
+        
+        total_return = (final_portfolio_value - self.initial_capital) / self.initial_capital
+        
+        # Calculate Sharpe ratio (simplified)
+        avg_return = sum(returns) / len(returns) if returns else 0.0
+        std_return = (sum((r - avg_return) ** 2 for r in returns) / len(returns)) ** 0.5 if returns else 0.0
+        sharpe_ratio = avg_return / std_return if std_return > 0 else 0.0
+        
+        # Calculate max drawdown
+        peak = equity_curve[0]
+        max_drawdown = 0.0
+        for equity in equity_curve:
+            if equity > peak:
+                peak = equity
+            drawdown = (peak - equity) / peak if peak > 0 else 0.0
+            max_drawdown = max(max_drawdown, drawdown)
+        
+        return {
+            "win_rate": win_rate,
+            "total_return": total_return,
+            "sharpe_ratio": sharpe_ratio,
+            "max_drawdown": max_drawdown,
+            "final_portfolio_value": final_portfolio_value,
+            "total_profit_loss": total_profit_loss
         }
 
 
 class StrategyBuilder:
-    """Helper class to build composite strategies easily."""
+    """Helper class to build composite strategies efficiently."""
+    
+    # Cache for indicator creation to avoid repeated string operations
+    _INDICATOR_MAP = {
+        'ma': MovingAverageIndicator,
+        'rsi': RSIIndicator,
+        'bollinger': BollingerBandsIndicator,
+        'mean_reversion': MeanReversionIndicator,
+        'mfi': MoneyFlowIndexIndicator,
+        'sar': ParabolicSARIndicator,
+        'cmo': ChandeMomentumOscillatorIndicator,
+        'stochastic': StochasticOscillatorIndicator,
+        'williams_r': WilliamsPercentRangeIndicator,
+        'macd': MACDIndicator,
+        'obv': OBVIndicator,
+        'ema': EMAIndicator,
+        'vwap': VWAPIndicator,
+        'atr': ATRIndicator,
+        'ibs': IBSIndicator,
+        'fibonacci': FibonacciRetracementIndicator,
+        'ppo': PPOIndicator,
+        'adx': ADXIndicator,
+        'std': StandardDeviationIndicator,
+        'rvi': RVIIndicator
+    }
     
     @staticmethod
     def create_default_strategy() -> DefaultStrategy:
@@ -74,7 +268,7 @@ class StrategyBuilder:
         Create a strategy with a single indicator.
         
         Args:
-            indicator_type: 'ma', 'rsi', 'bollinger', 'mean_reversion'
+            indicator_type: Indicator type (e.g., 'ma', 'rsi', 'bollinger')
             **kwargs: Parameters for the specific indicator
         """
         indicator = StrategyBuilder._create_indicator(indicator_type, **kwargs)
@@ -94,7 +288,7 @@ class StrategyBuilder:
             weight2: Weight for second indicator (0.0 to 1.0)
             **kwargs: Parameters for the indicators (use prefix like 'ind1_' or 'ind2_')
         """
-        # Extract parameters for each indicator
+        # Extract parameters efficiently using dict comprehension
         ind1_params = {k.replace('ind1_', ''): v for k, v in kwargs.items() if k.startswith('ind1_')}
         ind2_params = {k.replace('ind2_', ''): v for k, v in kwargs.items() if k.startswith('ind2_')}
         
@@ -119,7 +313,7 @@ class StrategyBuilder:
             weight3: Weight for third indicator
             **kwargs: Parameters for the indicators (use prefix like 'ind1_', 'ind2_', 'ind3_')
         """
-        # Extract parameters for each indicator
+        # Extract parameters efficiently
         ind1_params = {k.replace('ind1_', ''): v for k, v in kwargs.items() if k.startswith('ind1_')}
         ind2_params = {k.replace('ind2_', ''): v for k, v in kwargs.items() if k.startswith('ind2_')}
         ind3_params = {k.replace('ind3_', ''): v for k, v in kwargs.items() if k.startswith('ind3_')}
@@ -132,55 +326,16 @@ class StrategyBuilder:
     
     @staticmethod
     def _create_indicator(indicator_type: str, **kwargs):
-        """Create an indicator instance based on type."""
+        """Create an indicator instance based on type using cached mapping."""
         indicator_type = indicator_type.lower()
         
-        if indicator_type == 'ma':
-            return MovingAverageIndicator(**kwargs)
-        elif indicator_type == 'rsi':
-            return RSIIndicator(**kwargs)
-        elif indicator_type == 'bollinger':
-            return BollingerBandsIndicator(**kwargs)
-        elif indicator_type == 'mean_reversion':
-            return MeanReversionIndicator(**kwargs)
-        elif indicator_type == 'mfi':
-            return MoneyFlowIndexIndicator(**kwargs)
-        elif indicator_type == 'sar':
-            return ParabolicSARIndicator(**kwargs)
-        elif indicator_type == 'cmo':
-            return ChandeMomentumOscillatorIndicator(**kwargs)
-        elif indicator_type == 'stochastic':
-            return StochasticOscillatorIndicator(**kwargs)
-        elif indicator_type == 'williams_r':
-            return WilliamsPercentRangeIndicator(**kwargs)
-        elif indicator_type == 'macd':
-            return MACDIndicator(**kwargs)
-        elif indicator_type == 'obv':
-            return OBVIndicator(**kwargs)
-        elif indicator_type == 'ema':
-            return EMAIndicator(**kwargs)
-        elif indicator_type == 'vwap':
-            return VWAPIndicator(**kwargs)
-        elif indicator_type == 'atr':
-            return ATRIndicator(**kwargs)
-        elif indicator_type == 'ibs':
-            return IBSIndicator(**kwargs)
-        elif indicator_type == 'fibonacci':
-            return FibonacciRetracementIndicator(**kwargs)
-        elif indicator_type == 'ppo':
-            return PPOIndicator(**kwargs)
-        elif indicator_type == 'adx':
-            return ADXIndicator(**kwargs)
-        elif indicator_type == 'std':
-            return StandardDeviationIndicator(**kwargs)
-        elif indicator_type == 'rvi':
-            return RVIIndicator(**kwargs)
-        else:
+        if indicator_type not in StrategyBuilder._INDICATOR_MAP:
             raise ValueError(f"Unknown indicator type: {indicator_type}")
+        
+        return StrategyBuilder._INDICATOR_MAP[indicator_type](**kwargs)
 
 
-# Example usage functions
-def create_strategy_examples():
+def create_strategy_examples() -> Dict[str, CompositeStrategy]:
     """Create example strategies for demonstration."""
     examples = {}
     
