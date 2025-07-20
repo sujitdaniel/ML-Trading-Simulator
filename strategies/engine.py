@@ -2,7 +2,10 @@
 import pandas as pd
 from .strategies import (
     Strategy, DefaultStrategy, CompositeStrategy,
-    MovingAverageIndicator, RSIIndicator, BollingerBandsIndicator, MeanReversionIndicator, MoneyFlowIndexIndicator
+    MovingAverageIndicator, RSIIndicator, BollingerBandsIndicator, MeanReversionIndicator, MoneyFlowIndexIndicator,
+    ParabolicSARIndicator, ChandeMomentumOscillatorIndicator, StochasticOscillatorIndicator, WilliamsPercentRangeIndicator,
+    MACDIndicator, OBVIndicator, EMAIndicator, VWAPIndicator, ATRIndicator, IBSIndicator, FibonacciRetracementIndicator,
+    PPOIndicator, ADXIndicator, StandardDeviationIndicator, RVIIndicator
 )
 from typing import List, Tuple, Optional
 
@@ -142,6 +145,36 @@ class StrategyBuilder:
             return MeanReversionIndicator(**kwargs)
         elif indicator_type == 'mfi':
             return MoneyFlowIndexIndicator(**kwargs)
+        elif indicator_type == 'sar':
+            return ParabolicSARIndicator(**kwargs)
+        elif indicator_type == 'cmo':
+            return ChandeMomentumOscillatorIndicator(**kwargs)
+        elif indicator_type == 'stochastic':
+            return StochasticOscillatorIndicator(**kwargs)
+        elif indicator_type == 'williams_r':
+            return WilliamsPercentRangeIndicator(**kwargs)
+        elif indicator_type == 'macd':
+            return MACDIndicator(**kwargs)
+        elif indicator_type == 'obv':
+            return OBVIndicator(**kwargs)
+        elif indicator_type == 'ema':
+            return EMAIndicator(**kwargs)
+        elif indicator_type == 'vwap':
+            return VWAPIndicator(**kwargs)
+        elif indicator_type == 'atr':
+            return ATRIndicator(**kwargs)
+        elif indicator_type == 'ibs':
+            return IBSIndicator(**kwargs)
+        elif indicator_type == 'fibonacci':
+            return FibonacciRetracementIndicator(**kwargs)
+        elif indicator_type == 'ppo':
+            return PPOIndicator(**kwargs)
+        elif indicator_type == 'adx':
+            return ADXIndicator(**kwargs)
+        elif indicator_type == 'std':
+            return StandardDeviationIndicator(**kwargs)
+        elif indicator_type == 'rvi':
+            return RVIIndicator(**kwargs)
         else:
             raise ValueError(f"Unknown indicator type: {indicator_type}")
 

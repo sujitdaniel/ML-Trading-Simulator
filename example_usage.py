@@ -98,6 +98,32 @@ def run_strategy_analysis(ticker: str = "AAPL"):
     print(f"   Total trades: {summary['total_trades']}")
     print(f"   Buy trades: {summary['buy_trades']}")
     print(f"   Sell trades: {summary['sell_trades']}\n")
+    
+    # Example 7: Parabolic SAR Strategy
+    print("7. Parabolic SAR Strategy")
+    sar_strategy = StrategyBuilder.create_single_indicator_strategy(
+        'sar', 
+        acceleration=0.02, maximum=0.2
+    )
+    engine = TradingEngine(sar_strategy, ticker)
+    trades = engine.run()
+    summary = engine.get_trade_summary()
+    print(f"   Total trades: {summary['total_trades']}")
+    print(f"   Buy trades: {summary['buy_trades']}")
+    print(f"   Sell trades: {summary['sell_trades']}\n")
+    
+    # Example 8: Chande Momentum Oscillator Strategy
+    print("8. Chande Momentum Oscillator Strategy")
+    cmo_strategy = StrategyBuilder.create_single_indicator_strategy(
+        'cmo', 
+        period=14, overbought=50, oversold=-50
+    )
+    engine = TradingEngine(cmo_strategy, ticker)
+    trades = engine.run()
+    summary = engine.get_trade_summary()
+    print(f"   Total trades: {summary['total_trades']}")
+    print(f"   Buy trades: {summary['buy_trades']}")
+    print(f"   Sell trades: {summary['sell_trades']}\n")
 
 
 def demonstrate_custom_strategy():
@@ -167,6 +193,16 @@ def show_available_indicators():
             'name': 'Money Flow Index',
             'params': ['period', 'overbought', 'oversold'],
             'description': 'Combines price and volume to identify overbought/oversold conditions'
+        },
+        'sar': {
+            'name': 'Parabolic SAR',
+            'params': ['acceleration', 'maximum'],
+            'description': 'Trend following indicator that provides stop and reverse signals'
+        },
+        'cmo': {
+            'name': 'Chande Momentum Oscillator',
+            'params': ['period', 'overbought', 'oversold'],
+            'description': 'Momentum oscillator that measures the rate of price changes'
         }
     }
     

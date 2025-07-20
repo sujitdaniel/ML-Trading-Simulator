@@ -171,6 +171,585 @@ class MoneyFlowIndexIndicator(Indicator):
         return signals
 
 
+class ParabolicSARIndicator(Indicator):
+    """Parabolic SAR (Stop and Reverse) indicator for trend following."""
+    
+    def __init__(self, acceleration: float = 0.02, maximum: float = 0.2):
+        self.acceleration = acceleration
+        self.maximum = maximum
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate Parabolic SAR values."""
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        
+        # Initialize SAR array
+        sar = pd.Series(index=data.index, dtype=float)
+        ep = pd.Series(index=data.index, dtype=float)  # Extreme Point
+        af = pd.Series(index=data.index, dtype=float)  # Acceleration Factor
+        trend = pd.Series(index=data.index, dtype=int)  # 1 for uptrend, -1 for downtrend
+        
+        # Initialize first values
+        sar.iloc[0] = low.iloc[0]
+        ep.iloc[0] = high.iloc[0]
+        af.iloc[0] = self.acceleration
+        trend.iloc[0] = 1
+        
+        # Calculate SAR for each period
+        for i in range(1, len(data)):
+            prev_sar = sar.iloc[i-1]
+            prev_ep = ep.iloc[i-1]
+            prev_af = af.iloc[i-1]
+            prev_trend = trend.iloc[i-1]
+            
+            current_high = high.iloc[i]
+            current_low = low.iloc[i]
+            
+            # Calculate SAR
+            if prev_trend == 1:  # Uptrend
+                sar.iloc[i] = prev_sar + prev_af * (prev_ep - prev_sar)
+                # Check if we need to reverse
+                if current_low < sar.iloc[i]:
+                    trend.iloc[i] = -1
+                    sar.iloc[i] = prev_ep
+                    ep.iloc[i] = current_low
+                    af.iloc[i] = self.acceleration
+                else:
+                    trend.iloc[i] = 1
+                    if current_high > prev_ep:
+                        ep.iloc[i] = current_high
+                        af.iloc[i] = min(prev_af + self.acceleration, self.maximum)
+                    else:
+                        ep.iloc[i] = prev_ep
+                        af.iloc[i] = prev_af
+            else:  # Downtrend
+                sar.iloc[i] = prev_sar + prev_af * (prev_ep - prev_sar)
+                # Check if we need to reverse
+                if current_high > sar.iloc[i]:
+                    trend.iloc[i] = 1
+                    sar.iloc[i] = prev_ep
+                    ep.iloc[i] = current_high
+                    af.iloc[i] = self.acceleration
+                else:
+                    trend.iloc[i] = -1
+                    if current_low < prev_ep:
+                        ep.iloc[i] = current_low
+                        af.iloc[i] = min(prev_af + self.acceleration, self.maximum)
+                    else:
+                        ep.iloc[i] = prev_ep
+                        af.iloc[i] = prev_af
+        
+        return sar
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        sar = self.calculate(data)
+        
+        # Generate signals based on price position relative to SAR
+        # Buy when close > SAR (uptrend), Sell when close < SAR (downtrend)
+        signals.loc[data['Close'] > sar] = 1.0  # Buy signal
+        signals.loc[data['Close'] < sar] = -1.0  # Sell signal
+        return signals
+
+
+class ChandeMomentumOscillatorIndicator(Indicator):
+    """Chande Momentum Oscillator (CMO) indicator."""
+    
+    def __init__(self, period: int = 14, overbought: float = 50, oversold: float = -50):
+        self.period = period
+        self.overbought = overbought
+        self.oversold = oversold
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate Chande Momentum Oscillator."""
+        close = data['Close']
+        
+        # Calculate price changes
+        price_change = close.diff()
+        
+        # Separate gains and losses
+        gains = price_change.where(price_change > 0, 0.0)
+        losses = -price_change.where(price_change < 0, 0.0)
+        
+        # Calculate sum of gains and losses over the period
+        sum_gains = gains.rolling(window=self.period, min_periods=1).sum()
+        sum_losses = losses.rolling(window=self.period, min_periods=1).sum()
+        
+        # Calculate CMO
+        cmo = 100 * (sum_gains - sum_losses) / (sum_gains + sum_losses + 1e-10)
+        
+        return cmo
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        cmo = self.calculate(data)
+        
+        # Generate signals based on CMO levels
+        # Buy when CMO is oversold (negative), Sell when overbought (positive)
+        signals.loc[cmo < self.oversold] = 1.0  # Buy signal
+        signals.loc[cmo > self.overbought] = -1.0  # Sell signal
+        return signals
+
+
+class StochasticOscillatorIndicator(Indicator):
+    """Stochastic Oscillator indicator."""
+    
+    def __init__(self, k_period: int = 14, d_period: int = 3, overbought: float = 80, oversold: float = 20):
+        self.k_period = k_period
+        self.d_period = d_period
+        self.overbought = overbought
+        self.oversold = oversold
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate Stochastic Oscillator %K."""
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        
+        # Calculate %K
+        lowest_low = low.rolling(window=self.k_period, min_periods=1).min()
+        highest_high = high.rolling(window=self.k_period, min_periods=1).max()
+        
+        k_percent = 100 * (close - lowest_low) / (highest_high - lowest_low + 1e-10)
+        
+        return k_percent
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        k_percent = self.calculate(data)
+        
+        # Generate signals based on overbought/oversold levels
+        signals.loc[k_percent < self.oversold] = 1.0  # Buy signal
+        signals.loc[k_percent > self.overbought] = -1.0  # Sell signal
+        return signals
+
+
+class WilliamsPercentRangeIndicator(Indicator):
+    """Williams %R indicator."""
+    
+    def __init__(self, period: int = 14, overbought: float = -20, oversold: float = -80):
+        self.period = period
+        self.overbought = overbought
+        self.oversold = oversold
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate Williams %R."""
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        
+        # Calculate Williams %R
+        highest_high = high.rolling(window=self.period, min_periods=1).max()
+        lowest_low = low.rolling(window=self.period, min_periods=1).min()
+        
+        williams_r = -100 * (highest_high - close) / (highest_high - lowest_low + 1e-10)
+        
+        return williams_r
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        williams_r = self.calculate(data)
+        
+        # Generate signals (note: Williams %R is inverted)
+        signals.loc[williams_r < self.oversold] = 1.0  # Buy signal
+        signals.loc[williams_r > self.overbought] = -1.0  # Sell signal
+        return signals
+
+
+class MACDIndicator(Indicator):
+    """Moving Average Convergence Divergence (MACD) indicator."""
+    
+    def __init__(self, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9):
+        self.fast_period = fast_period
+        self.slow_period = slow_period
+        self.signal_period = signal_period
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate MACD line."""
+        close = data['Close']
+        
+        # Calculate EMA
+        ema_fast = close.ewm(span=self.fast_period, adjust=False).mean()
+        ema_slow = close.ewm(span=self.slow_period, adjust=False).mean()
+        
+        # Calculate MACD line
+        macd_line = ema_fast - ema_slow
+        
+        return macd_line
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        macd_line = self.calculate(data)
+        
+        # Calculate signal line
+        signal_line = macd_line.ewm(span=self.signal_period, adjust=False).mean()
+        
+        # Generate signals based on MACD crossover
+        signals.loc[macd_line > signal_line] = 1.0  # Buy signal
+        signals.loc[macd_line < signal_line] = -1.0  # Sell signal
+        return signals
+
+
+class OBVIndicator(Indicator):
+    """On-Balance Volume (OBV) indicator."""
+    
+    def __init__(self, period: int = 20):
+        self.period = period
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate On-Balance Volume."""
+        close = data['Close']
+        volume = data['Volume']
+        
+        # Calculate price change
+        price_change = close.diff()
+        
+        # Calculate OBV
+        obv = pd.Series(0.0, index=data.index)
+        obv.iloc[0] = volume.iloc[0]
+        
+        for i in range(1, len(data)):
+            if price_change.iloc[i] > 0:
+                obv.iloc[i] = obv.iloc[i-1] + volume.iloc[i]
+            elif price_change.iloc[i] < 0:
+                obv.iloc[i] = obv.iloc[i-1] - volume.iloc[i]
+            else:
+                obv.iloc[i] = obv.iloc[i-1]
+        
+        return obv
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        obv = self.calculate(data)
+        
+        # Calculate OBV moving average
+        obv_ma = obv.rolling(window=self.period, min_periods=1).mean()
+        
+        # Generate signals based on OBV vs its moving average
+        signals.loc[obv > obv_ma] = 1.0  # Buy signal
+        signals.loc[obv < obv_ma] = -1.0  # Sell signal
+        return signals
+
+
+class EMAIndicator(Indicator):
+    """Exponential Moving Average (EMA) indicator."""
+    
+    def __init__(self, short_period: int = 12, long_period: int = 26):
+        self.short_period = short_period
+        self.long_period = long_period
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate EMA difference."""
+        close = data['Close']
+        
+        # Calculate EMAs
+        ema_short = close.ewm(span=self.short_period, adjust=False).mean()
+        ema_long = close.ewm(span=self.long_period, adjust=False).mean()
+        
+        # Return the difference
+        return ema_short - ema_long
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        ema_diff = self.calculate(data)
+        
+        # Generate signals based on EMA crossover
+        signals.loc[ema_diff > 0] = 1.0  # Buy signal
+        signals.loc[ema_diff < 0] = -1.0  # Sell signal
+        return signals
+
+
+class VWAPIndicator(Indicator):
+    """Volume Weighted Average Price (VWAP) indicator."""
+    
+    def __init__(self, period: int = 20):
+        self.period = period
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate VWAP."""
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        volume = data['Volume']
+        
+        # Calculate typical price
+        typical_price = (high + low + close) / 3
+        
+        # Calculate VWAP
+        vwap = (typical_price * volume).rolling(window=self.period, min_periods=1).sum() / \
+               volume.rolling(window=self.period, min_periods=1).sum()
+        
+        return vwap
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        vwap = self.calculate(data)
+        close = data['Close']
+        
+        # Generate signals based on price vs VWAP
+        signals.loc[close > vwap] = 1.0  # Buy signal
+        signals.loc[close < vwap] = -1.0  # Sell signal
+        return signals
+
+
+class ATRIndicator(Indicator):
+    """Average True Range (ATR) indicator."""
+    
+    def __init__(self, period: int = 14, multiplier: float = 2.0):
+        self.period = period
+        self.multiplier = multiplier
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate ATR."""
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        
+        # Calculate True Range
+        tr1 = high - low
+        tr2 = abs(high - close.shift(1))
+        tr3 = abs(low - close.shift(1))
+        
+        true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        
+        # Calculate ATR
+        atr = true_range.rolling(window=self.period, min_periods=1).mean()
+        
+        return atr
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        atr = self.calculate(data)
+        close = data['Close']
+        
+        # Calculate upper and lower bands
+        upper_band = close + (self.multiplier * atr)
+        lower_band = close - (self.multiplier * atr)
+        
+        # Generate signals based on price vs bands
+        signals.loc[close < lower_band] = 1.0  # Buy signal
+        signals.loc[close > upper_band] = -1.0  # Sell signal
+        return signals
+
+
+class IBSIndicator(Indicator):
+    """Internal Bar Strength (IBS) indicator."""
+    
+    def __init__(self, overbought: float = 0.8, oversold: float = 0.2):
+        self.overbought = overbought
+        self.oversold = oversold
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate Internal Bar Strength."""
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        
+        # Calculate IBS
+        ibs = (close - low) / (high - low + 1e-10)
+        
+        return ibs
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        ibs = self.calculate(data)
+        
+        # Generate signals based on IBS levels
+        signals.loc[ibs < self.oversold] = 1.0  # Buy signal
+        signals.loc[ibs > self.overbought] = -1.0  # Sell signal
+        return signals
+
+
+class FibonacciRetracementIndicator(Indicator):
+    """Fibonacci Retracement Indicator."""
+    
+    def __init__(self, period: int = 20, retracement_level: float = 0.618):
+        self.period = period
+        self.retracement_level = retracement_level
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate Fibonacci retracement levels."""
+        high = data['High']
+        low = data['Low']
+        
+        # Calculate swing high and low
+        swing_high = high.rolling(window=self.period, min_periods=1).max()
+        swing_low = low.rolling(window=self.period, min_periods=1).min()
+        
+        # Calculate Fibonacci retracement
+        range_size = swing_high - swing_low
+        fib_level = swing_high - (range_size * self.retracement_level)
+        
+        return fib_level
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        fib_level = self.calculate(data)
+        close = data['Close']
+        
+        # Generate signals based on price vs Fibonacci level
+        signals.loc[close < fib_level] = 1.0  # Buy signal
+        signals.loc[close > fib_level] = -1.0  # Sell signal
+        return signals
+
+
+class PPOIndicator(Indicator):
+    """Percentage Price Oscillator (PPO) indicator."""
+    
+    def __init__(self, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9):
+        self.fast_period = fast_period
+        self.slow_period = slow_period
+        self.signal_period = signal_period
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate PPO line."""
+        close = data['Close']
+        
+        # Calculate EMAs
+        ema_fast = close.ewm(span=self.fast_period, adjust=False).mean()
+        ema_slow = close.ewm(span=self.slow_period, adjust=False).mean()
+        
+        # Calculate PPO
+        ppo = 100 * (ema_fast - ema_slow) / ema_slow
+        
+        return ppo
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        ppo = self.calculate(data)
+        
+        # Calculate signal line
+        signal_line = ppo.ewm(span=self.signal_period, adjust=False).mean()
+        
+        # Generate signals based on PPO crossover
+        signals.loc[ppo > signal_line] = 1.0  # Buy signal
+        signals.loc[ppo < signal_line] = -1.0  # Sell signal
+        return signals
+
+
+class ADXIndicator(Indicator):
+    """Average Directional Index (ADX) indicator."""
+    
+    def __init__(self, period: int = 14, threshold: float = 25.0):
+        self.period = period
+        self.threshold = threshold
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate ADX."""
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        
+        # Calculate True Range
+        tr1 = high - low
+        tr2 = abs(high - close.shift(1))
+        tr3 = abs(low - close.shift(1))
+        true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        
+        # Calculate Directional Movement
+        dm_plus = high - high.shift(1)
+        dm_minus = low.shift(1) - low
+        
+        dm_plus = dm_plus.where((dm_plus > dm_minus) & (dm_plus > 0), 0)
+        dm_minus = dm_minus.where((dm_minus > dm_plus) & (dm_minus > 0), 0)
+        
+        # Calculate smoothed values
+        tr_smooth = true_range.rolling(window=self.period, min_periods=1).sum()
+        dm_plus_smooth = dm_plus.rolling(window=self.period, min_periods=1).sum()
+        dm_minus_smooth = dm_minus.rolling(window=self.period, min_periods=1).sum()
+        
+        # Calculate DI+ and DI-
+        di_plus = 100 * dm_plus_smooth / tr_smooth
+        di_minus = 100 * dm_minus_smooth / tr_smooth
+        
+        # Calculate DX
+        dx = 100 * abs(di_plus - di_minus) / (di_plus + di_minus + 1e-10)
+        
+        # Calculate ADX
+        adx = dx.rolling(window=self.period, min_periods=1).mean()
+        
+        return adx
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        adx = self.calculate(data)
+        
+        # Generate signals based on ADX threshold
+        # High ADX indicates strong trend
+        signals.loc[adx > self.threshold] = 1.0  # Strong trend signal
+        signals.loc[adx < self.threshold] = -1.0  # Weak trend signal
+        return signals
+
+
+class StandardDeviationIndicator(Indicator):
+    """Standard Deviation Indicator."""
+    
+    def __init__(self, period: int = 20, multiplier: float = 2.0):
+        self.period = period
+        self.multiplier = multiplier
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate Standard Deviation."""
+        close = data['Close']
+        
+        # Calculate rolling standard deviation
+        std = close.rolling(window=self.period, min_periods=1).std()
+        
+        return std
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        std = self.calculate(data)
+        close = data['Close']
+        
+        # Calculate mean
+        mean = close.rolling(window=self.period, min_periods=1).mean()
+        
+        # Calculate bands
+        upper_band = mean + (self.multiplier * std)
+        lower_band = mean - (self.multiplier * std)
+        
+        # Generate signals based on price vs bands
+        signals.loc[close < lower_band] = 1.0  # Buy signal
+        signals.loc[close > upper_band] = -1.0  # Sell signal
+        return signals
+
+
+class RVIIndicator(Indicator):
+    """Relative Volatility Index (RVI) indicator."""
+    
+    def __init__(self, period: int = 14, overbought: float = 60, oversold: float = 40):
+        self.period = period
+        self.overbought = overbought
+        self.oversold = oversold
+    
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate RVI."""
+        close = data['Close']
+        
+        # Calculate price change
+        price_change = close.diff()
+        
+        # Calculate standard deviation
+        std = price_change.rolling(window=self.period, min_periods=1).std()
+        
+        # Calculate RVI
+        rvi = 100 * (std - std.rolling(window=self.period, min_periods=1).min()) / \
+              (std.rolling(window=self.period, min_periods=1).max() - std.rolling(window=self.period, min_periods=1).min() + 1e-10)
+        
+        return rvi
+    
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        signals = pd.Series(0.0, index=data.index)
+        rvi = self.calculate(data)
+        
+        # Generate signals based on RVI levels
+        signals.loc[rvi < self.oversold] = 1.0  # Buy signal
+        signals.loc[rvi > self.overbought] = -1.0  # Sell signal
+        return signals
+
+
 class CompositeStrategy(Strategy):
     """A strategy that combines multiple indicators with configurable weights."""
     
