@@ -96,7 +96,7 @@ if __name__ == "__main__":
     import yfinance as yf
     
     # Download sample data
-    df = yf.download("AAPL", start="2022-01-01", end="2023-01-01")
+    df = yf.download("MSFT", start="2022-01-01", end="2023-01-01")
     
     # Generate ML signals
     df_with_signals, metrics = generate_ml_signals(df)

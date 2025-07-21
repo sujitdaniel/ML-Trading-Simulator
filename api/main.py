@@ -48,6 +48,7 @@ class BacktestRequest(BaseModel):
     end_date: str
     initial_capital: float = 10000.0
     indicators: List[SelectedIndicator]
+    ml_weight: Optional[float] = None  # For hybrid strategy
 
 class Trade(BaseModel):
     action: str
@@ -207,12 +208,19 @@ async def run_backtest(request: BacktestRequest, strategy: str = "ma"):
     """
     try:
         # Validate request - Skip indicator validation for ML strategy
-        if strategy != "ml":
+        if strategy not in ("ml", "hybrid"):
             if not request.indicators:
                 raise HTTPException(status_code=400, detail="At least one indicator is required")
             
             if len(request.indicators) > 3:
                 raise HTTPException(status_code=400, detail="Maximum 3 indicators allowed")
+        if strategy == "hybrid":
+            if not request.indicators:
+                raise HTTPException(status_code=400, detail="At least one indicator is required for hybrid strategy")
+            if len(request.indicators) > 3:
+                raise HTTPException(status_code=400, detail="Maximum 3 indicators allowed for hybrid strategy")
+            if not hasattr(request, 'ml_weight') and 'ml_weight' not in request.__dict__:
+                raise HTTPException(status_code=400, detail="ml_weight is required for hybrid strategy")
         
         # Validate date range
         try:
@@ -236,10 +244,33 @@ async def run_backtest(request: BacktestRequest, strategy: str = "ma"):
         if request.initial_capital <= 0:
             raise HTTPException(status_code=400, detail="Initial capital must be greater than 0")
         
-        # Handle ML strategy separately
+        # Handle ML and Hybrid strategies
         if strategy == "ml":
-            # For ML strategy, we don't need indicators
             strategy_obj = None
+        elif strategy == "hybrid":
+            # Prepare indicator types, weights, and parameters
+            indicator_types = [ind.id for ind in request.indicators]
+            indicator_weights = [ind.weight for ind in request.indicators]
+            ml_weight = getattr(request, 'ml_weight', None)
+            if ml_weight is None:
+                ml_weight = request.__dict__.get('ml_weight', 0.5)
+            # Collect indicator parameters
+            kwargs = {}
+            for i, ind in enumerate(request.indicators):
+                for key, value in ind.parameters.items():
+                    prefix = f"ind{i+1}_"
+                    if any(int_keyword in key.lower() for int_keyword in ['period', 'window', 'length', 'days', 'bars']):
+                        kwargs[prefix + key] = int(value)
+                    else:
+                        kwargs[prefix + key] = float(value)
+            strategy_obj = StrategyBuilder.create_hybrid_ml_indicator_strategy(
+                indicator_types=indicator_types,
+                indicator_weights=indicator_weights,
+                ml_weight=ml_weight,
+                signal_threshold=0.5,
+                require_confirmation=True,
+                **kwargs
+            )
         else:
             # Create strategy based on number of indicators
             strategy_obj = None
@@ -346,6 +377,9 @@ async def run_backtest(request: BacktestRequest, strategy: str = "ma"):
         # Create strategy description
         if strategy == "ml":
             strategy_description = "Machine Learning (Logistic Regression)"
+        elif strategy == "hybrid":
+            indicator_names = [ind.name for ind in request.indicators]
+            strategy_description = f"Hybrid: ML + ({' + '.join(indicator_names)})"
         else:
             indicator_names = [ind.name for ind in request.indicators]
             strategy_description = " + ".join(indicator_names)
@@ -386,7 +420,7 @@ async def run_backtest(request: BacktestRequest, strategy: str = "ma"):
             },
             performance=performance,
             trades=trade_list,
-            ml_metrics=engine.get_ml_metrics() if strategy == "ml" else None
+            ml_metrics=engine.get_ml_metrics() if strategy in ("ml", "hybrid") else None
         )
         
     except FileNotFoundError:

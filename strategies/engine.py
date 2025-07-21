@@ -2,7 +2,7 @@
 import pandas as pd
 from pathlib import Path
 from .strategies import (
-    Strategy, DefaultStrategy, CompositeStrategy,
+    Strategy, DefaultStrategy, CompositeStrategy, HybridMLIndicatorStrategy,
     MovingAverageIndicator, RSIIndicator, BollingerBandsIndicator, MeanReversionIndicator, MoneyFlowIndexIndicator,
     ParabolicSARIndicator, ChandeMomentumOscillatorIndicator, StochasticOscillatorIndicator, WilliamsPercentRangeIndicator,
     MACDIndicator, OBVIndicator, EMAIndicator, VWAPIndicator, ATRIndicator, IBSIndicator, FibonacciRetracementIndicator,
@@ -363,6 +363,29 @@ class StrategyBuilder:
         indicator3 = StrategyBuilder._create_indicator(indicator3_type, **ind3_params)
         
         return CompositeStrategy([(indicator1, weight1), (indicator2, weight2), (indicator3, weight3)])
+    
+    @staticmethod
+    def create_hybrid_ml_indicator_strategy(indicator_types: list, indicator_weights: list, ml_weight: float = 0.5, signal_threshold: float = 0.5, require_confirmation: bool = True, **kwargs) -> HybridMLIndicatorStrategy:
+        """
+        Create a hybrid strategy that combines ML signals with indicator signals.
+        Args:
+            indicator_types: List of indicator type strings (e.g., ['ma', 'rsi'])
+            indicator_weights: List of floats for indicator weights (must sum with ml_weight to 1.0)
+            ml_weight: Weight for ML signal
+            signal_threshold: Threshold for composite signal
+            require_confirmation: Require agreement for trade
+            **kwargs: Indicator-specific parameters (use prefix like 'ind1_', 'ind2_')
+        Returns:
+            HybridMLIndicatorStrategy instance
+        """
+        if len(indicator_types) != len(indicator_weights):
+            raise ValueError("indicator_types and indicator_weights must have the same length")
+        indicators = []
+        for i, (ind_type, weight) in enumerate(zip(indicator_types, indicator_weights)):
+            ind_kwargs = {k.replace(f'ind{i+1}_', ''): v for k, v in kwargs.items() if k.startswith(f'ind{i+1}_')}
+            indicator = StrategyBuilder._create_indicator(ind_type, **ind_kwargs)
+            indicators.append((indicator, weight))
+        return HybridMLIndicatorStrategy(indicators, ml_weight=ml_weight, signal_threshold=signal_threshold, require_confirmation=require_confirmation)
     
     @staticmethod
     def _create_indicator(indicator_type: str, **kwargs):

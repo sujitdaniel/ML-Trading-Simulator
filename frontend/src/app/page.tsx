@@ -25,8 +25,9 @@ interface BacktestConfig {
   startDate: string
   endDate: string
   initialCapital: number
-  strategyType: 'indicators' | 'ml'
+  strategyType: 'indicators' | 'ml' | 'hybrid'
   indicators: SelectedIndicator[]
+  mlWeight?: number // Only for hybrid
 }
 
 interface SelectedIndicator {
@@ -176,7 +177,8 @@ export default function Home() {
     endDate: '',
     initialCapital: 10000,
     strategyType: 'indicators',
-    indicators: []
+    indicators: [],
+    mlWeight: 0.5,
   })
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -255,14 +257,18 @@ export default function Home() {
   }
 
   const normalizeWeights = () => {
-    const totalWeight = config.indicators.reduce((sum, ind) => sum + ind.weight, 0)
+    let totalWeight = config.indicators.reduce((sum, ind) => sum + ind.weight, 0)
+    if (config.strategyType === 'hybrid') {
+      totalWeight += config.mlWeight || 0
+    }
     if (totalWeight > 0) {
       setConfig(prev => ({
         ...prev,
         indicators: prev.indicators.map(ind => ({
           ...ind,
           weight: ind.weight / totalWeight
-        }))
+        })),
+        mlWeight: prev.mlWeight !== undefined ? (prev.mlWeight / totalWeight) : prev.mlWeight
       }))
     }
   }
@@ -273,8 +279,8 @@ export default function Home() {
       return
     }
 
-    // Validate indicators only for indicator strategy
-    if (config.strategyType === 'indicators' && config.indicators.length === 0) {
+    // Validate indicators only for indicator/hybrid strategy
+    if ((config.strategyType === 'indicators' || config.strategyType === 'hybrid') && config.indicators.length === 0) {
       setError('Please select at least one indicator')
       return
     }
@@ -289,8 +295,8 @@ export default function Home() {
       return
     }
 
-    // Normalize weights before sending (only for indicator strategy)
-    if (config.strategyType === 'indicators') {
+    // Normalize weights before sending (only for indicator/hybrid strategy)
+    if (config.strategyType === 'indicators' || config.strategyType === 'hybrid') {
       normalizeWeights()
     }
     
@@ -299,14 +305,19 @@ export default function Home() {
     setResult(null)
     
     try {
-      const strategy = config.strategyType === 'ml' ? 'ml' : 'ma'
-      
-      const requestBody = {
+      let strategy = 'ma'
+      if (config.strategyType === 'ml') strategy = 'ml'
+      if (config.strategyType === 'hybrid') strategy = 'hybrid'
+
+      const requestBody: any = {
         ticker: config.ticker.toUpperCase(),
         start_date: config.startDate,
         end_date: config.endDate,
         initial_capital: config.initialCapital,
-        indicators: config.strategyType === 'indicators' ? config.indicators : []
+        indicators: (config.strategyType === 'indicators' || config.strategyType === 'hybrid') ? config.indicators : []
+      }
+      if (config.strategyType === 'hybrid') {
+        requestBody.ml_weight = config.mlWeight
       }
 
       const res = await fetch(`http://127.0.0.1:8000/backtest?strategy=${strategy}`, {
@@ -376,7 +387,7 @@ export default function Home() {
                 Strategy Selection
               </h2>
               
-              <div className="grid gap-4 md:grid-cols-2 mb-6">
+              <div className="grid gap-4 md:grid-cols-3 mb-6">
                 <div className="bg-white/5 rounded-lg p-4 border border-white/10 hover:border-blue-400/50 transition-all duration-200">
                   <label className="flex items-center cursor-pointer">
                     <input
@@ -384,7 +395,7 @@ export default function Home() {
                       name="strategy"
                       value="indicators"
                       checked={config.strategyType === 'indicators'}
-                      onChange={(e) => setConfig(prev => ({ ...prev, strategyType: e.target.value as 'indicators' | 'ml' }))}
+                      onChange={(e) => setConfig(prev => ({ ...prev, strategyType: e.target.value as 'indicators' | 'ml' | 'hybrid' }))}
                       className="mr-3 text-blue-500 focus:ring-blue-400"
                     />
                     <div>
@@ -401,12 +412,29 @@ export default function Home() {
                       name="strategy"
                       value="ml"
                       checked={config.strategyType === 'ml'}
-                      onChange={(e) => setConfig(prev => ({ ...prev, strategyType: e.target.value as 'indicators' | 'ml' }))}
+                      onChange={(e) => setConfig(prev => ({ ...prev, strategyType: e.target.value as 'indicators' | 'ml' | 'hybrid' }))}
                       className="mr-3 text-blue-500 focus:ring-blue-400"
                     />
                     <div>
                       <div className="text-white font-medium">Machine Learning Strategy</div>
                       <div className="text-blue-300/60 text-sm">AI-powered logistic regression</div>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="bg-white/5 rounded-lg p-4 border border-white/10 hover:border-blue-400/50 transition-all duration-200">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value="hybrid"
+                      checked={config.strategyType === 'hybrid'}
+                      onChange={(e) => setConfig(prev => ({ ...prev, strategyType: e.target.value as 'indicators' | 'ml' | 'hybrid' }))}
+                      className="mr-3 text-blue-500 focus:ring-blue-400"
+                    />
+                    <div>
+                      <div className="text-white font-medium">Hybrid (ML + Indicators)</div>
+                      <div className="text-blue-300/60 text-sm">Combine ML and indicator signals</div>
                     </div>
                   </label>
                 </div>
@@ -478,8 +506,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Indicator Selection - Only show for indicator strategy */}
-            {config.strategyType === 'indicators' && (
+            {/* Indicator Selection - Only show for indicator or hybrid strategy */}
+            {(config.strategyType === 'indicators' || config.strategyType === 'hybrid') && (
               <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
                 <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
                   <span className="mr-3">📊</span>
@@ -526,8 +554,8 @@ export default function Home() {
             </div>
             )}
 
-            {/* Selected Indicators Configuration - Only show for indicator strategy */}
-            {config.strategyType === 'indicators' && config.indicators.length > 0 && (
+            {/* Selected Indicators Configuration - Only show for indicator or hybrid strategy */}
+            {(config.strategyType === 'indicators' || config.strategyType === 'hybrid') && config.indicators.length > 0 && (
               <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
                 <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
                   <span className="mr-3">🔧</span>
@@ -594,6 +622,36 @@ export default function Home() {
                   className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors duration-200"
                 >
                   Normalize Weights
+                </button>
+              </div>
+            )}
+
+            {/* ML Weight Slider - Only show for hybrid strategy */}
+            {config.strategyType === 'hybrid' && (
+              <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
+                <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+                  <span className="mr-3">🤖</span>
+                  ML Signal Weight
+                </h2>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-blue-200 mb-2">
+                    ML Weight: {config.mlWeight?.toFixed(2)}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={config.mlWeight}
+                    onChange={(e) => setConfig(prev => ({ ...prev, mlWeight: parseFloat(e.target.value) }))}
+                    className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                </div>
+                <button
+                  onClick={normalizeWeights}
+                  className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors duration-200"
+                >
+                  Normalize All Weights
                 </button>
               </div>
             )}

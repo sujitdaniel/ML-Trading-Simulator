@@ -974,3 +974,61 @@ class MeanReversionStrategy(Strategy):
         signals["positions"] = signals["signal"].diff()
         return signals
 
+
+class HybridMLIndicatorStrategy(Strategy):
+    """A strategy that combines ML signals with indicator signals and configurable weights."""
+    def __init__(self, indicators: List[Tuple[Indicator, float]], ml_weight: float = 0.5, signal_threshold: float = 0.5, require_confirmation: bool = True):
+        if len(indicators) > 3:
+            raise ValueError("Maximum 3 indicators allowed")
+        if len(indicators) < 1:
+            raise ValueError("At least 1 indicator required")
+        if not (0.0 <= ml_weight <= 1.0):
+            raise ValueError("ml_weight must be between 0.0 and 1.0")
+        self.indicators = indicators
+        self.ml_weight = ml_weight
+        self.signal_threshold = signal_threshold
+        self.require_confirmation = require_confirmation
+        # Normalize indicator weights so that (sum + ml_weight) == 1
+        total_weight = sum(weight for _, weight in indicators) + ml_weight
+        self.normalized_indicators = [(ind, weight/total_weight) for ind, weight in indicators]
+        self.normalized_ml_weight = ml_weight / total_weight
+
+    def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
+        from ml.logistic_model import generate_ml_signals
+        signals = pd.DataFrame(index=data.index)
+        signals["signal"] = 0.0
+        # Calculate indicator signals
+        indicator_signals = []
+        for indicator, weight in self.normalized_indicators:
+            indicator_signal = indicator.generate_signals(data)
+            indicator_signals.append((indicator_signal, weight))
+            signals[f"{indicator.__class__.__name__}_signal"] = indicator_signal
+        # Calculate ML signal
+        ml_df, _ = generate_ml_signals(data)
+        ml_signal = ml_df.reindex(data.index)["ml_signal"].fillna(0)
+        signals["ml_signal"] = ml_signal
+        # Calculate weighted composite signal
+        composite_signal = pd.Series(0.0, index=data.index)
+        for indicator_signal, weight in indicator_signals:
+            composite_signal += indicator_signal * weight
+        composite_signal += ml_signal * self.normalized_ml_weight
+        signals["composite_signal"] = composite_signal
+        # Generate final signals based on threshold and confirmation
+        if self.require_confirmation and len(self.indicators) > 1:
+            buy_agreement = pd.Series(0, index=data.index)
+            sell_agreement = pd.Series(0, index=data.index)
+            for indicator_signal, _ in indicator_signals:
+                buy_agreement += (indicator_signal > 0).astype(int)
+                sell_agreement += (indicator_signal < 0).astype(int)
+            # ML signal counts as one vote
+            buy_agreement += (ml_signal > 0).astype(int)
+            sell_agreement += (ml_signal < 0).astype(int)
+            min_agreement = max(1, (len(self.indicators) + 1) // 2)
+            signals.loc[(composite_signal > self.signal_threshold) & (buy_agreement >= min_agreement), "signal"] = 1.0
+            signals.loc[(composite_signal < -self.signal_threshold) & (sell_agreement >= min_agreement), "signal"] = -1.0
+        else:
+            signals.loc[composite_signal > self.signal_threshold, "signal"] = 1.0
+            signals.loc[composite_signal < -self.signal_threshold, "signal"] = -1.0
+        signals["positions"] = signals["signal"].diff()
+        return signals
+
