@@ -4,9 +4,14 @@ from sklearn.metrics import precision_score, recall_score, confusion_matrix
 import pandas as pd
 import numpy as np
 
-def generate_ml_signals(df: pd.DataFrame):
+def train_logistic_regression_model(X_train, y_train):
+    model = LogisticRegression(random_state=42, max_iter=1000)
+    model.fit(X_train, y_train)
+    return model
+
+def generate_ml_signals_logistic(df: pd.DataFrame):
     """
-    Generate machine learning trading signals using logistic regression.
+    Generate trading signals using logistic regression.
     Returns (signals_df, metrics_dict)
     """
     df_ml = df.copy()
@@ -18,8 +23,7 @@ def generate_ml_signals(df: pd.DataFrame):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, shuffle=False, test_size=0.2, random_state=42
     )
-    model = LogisticRegression(random_state=42, max_iter=1000)
-    model.fit(X_train, y_train)
+    model = train_logistic_regression_model(X_train, y_train)
     df_ml["ml_signal"] = model.predict(X)
     df_ml["ml_signal"] = np.where(df_ml["ml_signal"] == 1, 1, -1)
     train_score = model.score(X_train, y_train)
@@ -36,6 +40,11 @@ def generate_ml_signals(df: pd.DataFrame):
         "confusion_matrix": cm
     }
     return df_ml, metrics
+
+# Keep the original function for backward compatibility
+
+def generate_ml_signals(df: pd.DataFrame):
+    return generate_ml_signals_logistic(df)
 
 def generate_ml_signals_advanced(df: pd.DataFrame, features: list = None) -> pd.DataFrame:
     """

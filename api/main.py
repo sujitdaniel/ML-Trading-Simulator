@@ -49,6 +49,7 @@ class BacktestRequest(BaseModel):
     initial_capital: float = 10000.0
     indicators: List[SelectedIndicator]
     ml_weight: Optional[float] = None  # For hybrid strategy
+    ml_model: Optional[str] = 'logistic'  # For ML/hybrid strategy
 
 class Trade(BaseModel):
     action: str
@@ -207,6 +208,25 @@ async def run_backtest(request: BacktestRequest, strategy: str = "ma"):
         BacktestResponse with performance metrics and trade history
     """
     try:
+        # ML model dispatch map
+        from ml.logistic_model import generate_ml_signals_logistic
+        from ml.random_forest_model import generate_ml_signals_random_forest
+        from ml.xgboost_model import generate_ml_signals_xgboost
+        from ml.gradient_boosting_model import generate_ml_signals_gradient_boosting
+        from ml.svm_model import generate_ml_signals_svm
+        from ml.knn_model import generate_ml_signals_knn
+        from ml.lstm_model import generate_ml_signals_lstm
+        ML_MODEL_MAP = {
+            'logistic': generate_ml_signals_logistic,
+            'random_forest': generate_ml_signals_random_forest,
+            'xgboost': generate_ml_signals_xgboost,
+            'gradient_boosting': generate_ml_signals_gradient_boosting,
+            'svm': generate_ml_signals_svm,
+            'knn': generate_ml_signals_knn,
+            'lstm': generate_ml_signals_lstm,
+        }
+        ml_model = getattr(request, 'ml_model', 'logistic') or 'logistic'
+        ml_func = ML_MODEL_MAP.get(ml_model, generate_ml_signals_logistic)
         # Validate request - Skip indicator validation for ML strategy
         if strategy not in ("ml", "hybrid"):
             if not request.indicators:
@@ -246,6 +266,7 @@ async def run_backtest(request: BacktestRequest, strategy: str = "ma"):
         
         # Handle ML and Hybrid strategies
         if strategy == "ml":
+            # Pass the ML function to TradingEngine
             strategy_obj = None
         elif strategy == "hybrid":
             # Prepare indicator types, weights, and parameters
@@ -269,6 +290,7 @@ async def run_backtest(request: BacktestRequest, strategy: str = "ma"):
                 ml_weight=ml_weight,
                 signal_threshold=0.5,
                 require_confirmation=True,
+                ml_func=ml_func,
                 **kwargs
             )
         else:
@@ -367,7 +389,8 @@ async def run_backtest(request: BacktestRequest, strategy: str = "ma"):
             strategy_obj, 
             request.ticker, 
             data_file=data_file,
-            initial_capital=request.initial_capital
+            initial_capital=request.initial_capital,
+            ml_func=ml_func if strategy == 'ml' else None
         )
         
         trades = engine.run(strategy_type=strategy)

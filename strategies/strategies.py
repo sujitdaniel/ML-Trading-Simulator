@@ -977,7 +977,7 @@ class MeanReversionStrategy(Strategy):
 
 class HybridMLIndicatorStrategy(Strategy):
     """A strategy that combines ML signals with indicator signals and configurable weights."""
-    def __init__(self, indicators: List[Tuple[Indicator, float]], ml_weight: float = 0.5, signal_threshold: float = 0.5, require_confirmation: bool = True):
+    def __init__(self, indicators: List[Tuple[Indicator, float]], ml_weight: float = 0.5, signal_threshold: float = 0.5, require_confirmation: bool = True, ml_func=None):
         if len(indicators) > 3:
             raise ValueError("Maximum 3 indicators allowed")
         if len(indicators) < 1:
@@ -988,13 +988,17 @@ class HybridMLIndicatorStrategy(Strategy):
         self.ml_weight = ml_weight
         self.signal_threshold = signal_threshold
         self.require_confirmation = require_confirmation
+        self.ml_func = ml_func
         # Normalize indicator weights so that (sum + ml_weight) == 1
         total_weight = sum(weight for _, weight in indicators) + ml_weight
         self.normalized_indicators = [(ind, weight/total_weight) for ind, weight in indicators]
         self.normalized_ml_weight = ml_weight / total_weight
 
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
-        from ml.logistic_model import generate_ml_signals
+        ml_func = self.ml_func
+        if ml_func is None:
+            from ml.logistic_model import generate_ml_signals_logistic
+            ml_func = generate_ml_signals_logistic
         signals = pd.DataFrame(index=data.index)
         signals["signal"] = 0.0
         # Calculate indicator signals
@@ -1004,7 +1008,7 @@ class HybridMLIndicatorStrategy(Strategy):
             indicator_signals.append((indicator_signal, weight))
             signals[f"{indicator.__class__.__name__}_signal"] = indicator_signal
         # Calculate ML signal
-        ml_df, _ = generate_ml_signals(data)
+        ml_df, _ = ml_func(data)
         ml_signal = ml_df.reindex(data.index)["ml_signal"].fillna(0)
         signals["ml_signal"] = ml_signal
         # Calculate weighted composite signal

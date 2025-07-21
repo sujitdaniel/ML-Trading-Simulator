@@ -18,7 +18,7 @@ from ml.logistic_model import generate_ml_signals
 
 
 class TradingEngine:
-    def __init__(self, strategy: Strategy, ticker: str, data_file: str = None, initial_capital: float = 10000.0):
+    def __init__(self, strategy: Strategy, ticker: str, data_file: str = None, initial_capital: float = 10000.0, ml_func=None):
         self.strategy = strategy
         self.ticker = ticker
         self.data_file = data_file
@@ -27,6 +27,7 @@ class TradingEngine:
         self.trades = []
         self.signals = None
         self.portfolio_value = initial_capital
+        self.ml_func = ml_func
         self._load_data()
 
     def _load_data(self) -> None:
@@ -82,8 +83,12 @@ class TradingEngine:
         
         # Handle ML strategy separately
         if strategy_type == "ml":
-            print("Running ML strategy (Logistic Regression)")
-            self.signals, self.ml_metrics = generate_ml_signals(self.data)
+            print(f"Running ML strategy ({self.ml_func.__name__ if self.ml_func else 'Logistic Regression'})")
+            if self.ml_func is not None:
+                self.signals, self.ml_metrics = self.ml_func(self.data)
+            else:
+                from ml.logistic_model import generate_ml_signals
+                self.signals, self.ml_metrics = generate_ml_signals(self.data)
             # ML strategy uses 'ml_signal' column instead of 'positions'
             self.trades = self._extract_trades_ml()
         else:

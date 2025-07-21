@@ -1,0 +1,16 @@
+FROM node:20-slim
+
+WORKDIR /app/frontend
+
+# Copy only package files first for better cache
+COPY frontend/package*.json ./
+
+# Install dependencies (this creates node_modules/.bin/next)
+RUN npm install && npm rebuild lightningcss
+
+# Copy the rest of the frontend code
+COPY frontend/. .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

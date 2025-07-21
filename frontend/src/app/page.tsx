@@ -28,6 +28,7 @@ interface BacktestConfig {
   strategyType: 'indicators' | 'ml' | 'hybrid'
   indicators: SelectedIndicator[]
   mlWeight?: number // Only for hybrid
+  mlModel?: string // For ML/hybrid
 }
 
 interface SelectedIndicator {
@@ -179,6 +180,7 @@ export default function Home() {
     strategyType: 'indicators',
     indicators: [],
     mlWeight: 0.5,
+    mlModel: 'logistic',
   })
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -273,6 +275,16 @@ export default function Home() {
     }
   }
 
+  const ML_MODELS = [
+    { value: 'logistic', label: 'Logistic Regression' },
+    { value: 'random_forest', label: 'Random Forest' },
+    { value: 'xgboost', label: 'XGBoost' },
+    { value: 'gradient_boosting', label: 'Gradient Boosting' },
+    { value: 'svm', label: 'Support Vector Machine (SVM)' },
+    { value: 'knn', label: 'K-Nearest Neighbors (KNN)' },
+    { value: 'lstm', label: 'LSTM (Deep Learning)' },
+  ];
+
   const handleBacktest = async () => {
     if (!config.ticker.trim()) {
       setError('Please enter a valid ticker symbol')
@@ -318,6 +330,9 @@ export default function Home() {
       }
       if (config.strategyType === 'hybrid') {
         requestBody.ml_weight = config.mlWeight
+      }
+      if (config.strategyType === 'ml' || config.strategyType === 'hybrid') {
+        requestBody.ml_model = config.mlModel || 'logistic'
       }
 
       const res = await fetch(`http://127.0.0.1:8000/backtest?strategy=${strategy}`, {
@@ -635,6 +650,20 @@ export default function Home() {
                 </h2>
                 <div className="mb-3">
                   <label className="block text-sm font-medium text-blue-200 mb-2">
+                    ML Model
+                  </label>
+                  <select
+                    value={config.mlModel}
+                    onChange={e => setConfig(prev => ({ ...prev, mlModel: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 mb-2"
+                  >
+                    {ML_MODELS.map(model => (
+                      <option key={model.value} value={model.value}>{model.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-blue-200 mb-2">
                     ML Weight: {config.mlWeight?.toFixed(2)}
                   </label>
                   <input
@@ -663,10 +692,23 @@ export default function Home() {
                   <span className="mr-3">🤖</span>
                   Machine Learning Strategy
                 </h2>
-                
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-blue-200 mb-2">
+                    ML Model
+                  </label>
+                  <select
+                    value={config.mlModel}
+                    onChange={e => setConfig(prev => ({ ...prev, mlModel: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 mb-2"
+                  >
+                    {ML_MODELS.map(model => (
+                      <option key={model.value} value={model.value}>{model.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-lg p-4 border border-purple-400/30">
                   <div className="text-blue-200 text-sm mb-3">
-                    <strong>Logistic Regression Model:</strong>
+                    <strong>Model: {ML_MODELS.find(m => m.value === config.mlModel)?.label || 'Logistic Regression'}</strong>
                   </div>
                   <ul className="text-blue-300/80 text-sm space-y-2">
                     <li>• Uses price returns as features</li>
