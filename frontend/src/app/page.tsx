@@ -25,6 +25,7 @@ interface BacktestConfig {
   startDate: string
   endDate: string
   initialCapital: number
+  strategyType: 'indicators' | 'ml'
   indicators: SelectedIndicator[]
 }
 
@@ -57,6 +58,7 @@ interface BacktestResult {
     date: string
     price: number
   }>
+  ml_metrics?: { [key: string]: any }
 }
 
 // All available indicators with their parameters
@@ -173,6 +175,7 @@ export default function Home() {
     startDate: '',
     endDate: '',
     initialCapital: 10000,
+    strategyType: 'indicators',
     indicators: []
   })
   const [result, setResult] = useState<BacktestResult | null>(null)
@@ -270,7 +273,8 @@ export default function Home() {
       return
     }
 
-    if (config.indicators.length === 0) {
+    // Validate indicators only for indicator strategy
+    if (config.strategyType === 'indicators' && config.indicators.length === 0) {
       setError('Please select at least one indicator')
       return
     }
@@ -285,23 +289,27 @@ export default function Home() {
       return
     }
 
-    // Normalize weights before sending
-    normalizeWeights()
+    // Normalize weights before sending (only for indicator strategy)
+    if (config.strategyType === 'indicators') {
+      normalizeWeights()
+    }
     
     setLoading(true)
     setError(null)
     setResult(null)
     
     try {
+      const strategy = config.strategyType === 'ml' ? 'ml' : 'ma'
+      
       const requestBody = {
         ticker: config.ticker.toUpperCase(),
         start_date: config.startDate,
         end_date: config.endDate,
         initial_capital: config.initialCapital,
-        indicators: config.indicators
+        indicators: config.strategyType === 'indicators' ? config.indicators : []
       }
 
-      const res = await fetch('http://127.0.0.1:8000/backtest', {
+      const res = await fetch(`http://127.0.0.1:8000/backtest?strategy=${strategy}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -361,6 +369,50 @@ export default function Home() {
           {/* Configuration Panel */}
           <div className="lg:col-span-2 space-y-6">
             
+            {/* Strategy Selection */}
+            <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+                <span className="mr-3">🎯</span>
+                Strategy Selection
+              </h2>
+              
+              <div className="grid gap-4 md:grid-cols-2 mb-6">
+                <div className="bg-white/5 rounded-lg p-4 border border-white/10 hover:border-blue-400/50 transition-all duration-200">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value="indicators"
+                      checked={config.strategyType === 'indicators'}
+                      onChange={(e) => setConfig(prev => ({ ...prev, strategyType: e.target.value as 'indicators' | 'ml' }))}
+                      className="mr-3 text-blue-500 focus:ring-blue-400"
+                    />
+                    <div>
+                      <div className="text-white font-medium">Indicator Strategy</div>
+                      <div className="text-blue-300/60 text-sm">Traditional technical indicators</div>
+                    </div>
+                  </label>
+                </div>
+                
+                <div className="bg-white/5 rounded-lg p-4 border border-white/10 hover:border-blue-400/50 transition-all duration-200">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value="ml"
+                      checked={config.strategyType === 'ml'}
+                      onChange={(e) => setConfig(prev => ({ ...prev, strategyType: e.target.value as 'indicators' | 'ml' }))}
+                      className="mr-3 text-blue-500 focus:ring-blue-400"
+                    />
+                    <div>
+                      <div className="text-white font-medium">Machine Learning Strategy</div>
+                      <div className="text-blue-300/60 text-sm">AI-powered logistic regression</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             {/* Basic Settings */}
             <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
               <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
@@ -426,12 +478,13 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Indicator Selection */}
-            <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-                <span className="mr-3">📊</span>
-                Indicator Selection ({config.indicators.length}/3)
-              </h2>
+            {/* Indicator Selection - Only show for indicator strategy */}
+            {config.strategyType === 'indicators' && (
+              <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
+                <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+                  <span className="mr-3">📊</span>
+                  Indicator Selection ({config.indicators.length}/3)
+                </h2>
               
               {/* Category Filter */}
               <div className="mb-4">
@@ -471,9 +524,10 @@ export default function Home() {
                 ))}
               </div>
             </div>
+            )}
 
-            {/* Selected Indicators Configuration */}
-            {config.indicators.length > 0 && (
+            {/* Selected Indicators Configuration - Only show for indicator strategy */}
+            {config.strategyType === 'indicators' && config.indicators.length > 0 && (
               <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
                 <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
                   <span className="mr-3">🔧</span>
@@ -544,10 +598,33 @@ export default function Home() {
               </div>
             )}
 
+            {/* ML Strategy Info - Only show for ML strategy */}
+            {config.strategyType === 'ml' && (
+              <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
+                <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+                  <span className="mr-3">🤖</span>
+                  Machine Learning Strategy
+                </h2>
+                
+                <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-lg p-4 border border-purple-400/30">
+                  <div className="text-blue-200 text-sm mb-3">
+                    <strong>Logistic Regression Model:</strong>
+                  </div>
+                  <ul className="text-blue-300/80 text-sm space-y-2">
+                    <li>• Uses price returns as features</li>
+                    <li>• Predicts buy/sell signals based on historical patterns</li>
+                    <li>• Automatically trained on your selected date range</li>
+                    <li>• No manual parameter configuration required</li>
+                    <li>• Time series split preserves temporal order</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
             {/* Run Backtest Button */}
             <button
               onClick={handleBacktest}
-              disabled={loading || !config.ticker.trim() || config.indicators.length === 0}
+              disabled={loading || !config.ticker.trim() || (config.strategyType === 'indicators' && config.indicators.length === 0)}
               className="w-full px-6 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? (
@@ -603,12 +680,12 @@ export default function Home() {
                 <div className="space-y-3">
                   {/* Key Metrics */}
                   <div className="grid grid-cols-2 gap-3">
-                                         <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                       <div className="text-blue-200 text-xs font-medium mb-1">Total Return</div>
-                       <div className={`font-bold ${(result.performance.total_return || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                         {formatMetric(result.performance.total_return || 0, 'percentage')}
-                       </div>
-                     </div>
+                    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                      <div className="text-blue-200 text-xs font-medium mb-1">Total Return</div>
+                      <div className={`font-bold ${(result.performance.total_return || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {formatMetric(result.performance.total_return || 0, 'percentage')}
+                      </div>
+                    </div>
                     <div className="bg-white/5 rounded-lg p-3 border border-white/10">
                       <div className="text-blue-200 text-xs font-medium mb-1">Win Rate</div>
                       <div className="text-white font-bold">
@@ -616,6 +693,30 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
+                  {/* ML Model Metrics Card */}
+                  {result.ml_metrics && (
+                    <div className="bg-gradient-to-r from-purple-800/40 to-blue-800/40 rounded-xl border border-purple-400/30 shadow-lg p-5 mt-2">
+                      <div className="mb-2">
+                        <h2 className="text-xl font-bold text-purple-200 flex items-center mb-1">
+                          <span className="mr-2">🤖</span> ML Model Metrics
+                        </h2>
+                        <div className="text-blue-200 text-sm">Logistic Regression Performance</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-blue-100 text-sm mb-2">
+                        <div>Train Accuracy: <span className="font-semibold text-white">{formatMetric(result.ml_metrics.train_accuracy, 'percentage')}</span></div>
+                        <div>Test Accuracy: <span className="font-semibold text-white">{formatMetric(result.ml_metrics.test_accuracy, 'percentage')}</span></div>
+                        <div>Precision: <span className="font-semibold text-white">{formatMetric(result.ml_metrics.precision, 'percentage')}</span></div>
+                        <div>Recall: <span className="font-semibold text-white">{formatMetric(result.ml_metrics.recall, 'percentage')}</span></div>
+                      </div>
+                      <div className="text-blue-200 text-xs font-medium mb-1 mt-2">Confusion Matrix</div>
+                      <div className="grid grid-cols-2 gap-2 text-blue-100 text-xs">
+                        <div>TP: <span className="font-semibold text-white">{result.ml_metrics.confusion_matrix?.[0]?.[0]}</span></div>
+                        <div>FP: <span className="font-semibold text-white">{result.ml_metrics.confusion_matrix?.[0]?.[1]}</span></div>
+                        <div>FN: <span className="font-semibold text-white">{result.ml_metrics.confusion_matrix?.[1]?.[0]}</span></div>
+                        <div>TN: <span className="font-semibold text-white">{result.ml_metrics.confusion_matrix?.[1]?.[1]}</span></div>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-white/5 rounded-lg p-3 border border-white/10">
