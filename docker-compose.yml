@@ -15,8 +15,7 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./frontend
     ports:
       - "3000:3000"
     working_dir: /app/frontend
