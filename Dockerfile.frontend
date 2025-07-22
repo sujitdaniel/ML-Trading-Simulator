@@ -6,7 +6,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 
 # Install dependencies (this creates node_modules/.bin/next)
-RUN npm install && npm rebuild lightningcss
+RUN npm install
 
 # Copy the rest of the frontend code
 COPY frontend/. .
