@@ -20,8 +20,8 @@ services:
       - "3000:3000"
     working_dir: /app/frontend
     # Only mount source code, not node_modules or .next (see .dockerignore)
-    volumes:
-      - ./frontend:/app/frontend
+    # volumes:
+    #   - ./frontend:/app/frontend
     environment:
       - NODE_ENV=development
     depends_on:
