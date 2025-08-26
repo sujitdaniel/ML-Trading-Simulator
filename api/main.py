@@ -22,13 +22,22 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS
+# Configure CORS - Allow specific origins for development and Docker
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=[
+        "http://localhost:3000",  # Local development
+        "http://127.0.0.1:3000",  # Alternative localhost
+        "http://localhost:3001",  # Alternative port
+        "http://127.0.0.1:3001",  # Alternative port
+        "http://frontend:3000",   # Docker frontend service
+        "http://0.0.0.0:3000",    # Docker binding
+    ],
+    allow_credentials=False,  # Set to False when using wildcard origins
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=86400  # Cache preflight for 24 hours
 )
 
 # Pydantic models for request/response
@@ -181,6 +190,17 @@ async def root():
             "/health": "Health check"
         }
     }
+
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    """Handle CORS preflight requests."""
+    from fastapi.responses import Response
+    response = Response(content="CORS preflight handled")
+    response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Max-Age"] = "86400"
+    return response
 
 @app.get("/health")
 async def health_check():
@@ -569,5 +589,5 @@ async def get_available_tickers():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 

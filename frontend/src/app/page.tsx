@@ -335,12 +335,14 @@ export default function Home() {
         requestBody.ml_model = config.mlModel || 'logistic'
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/backtest?strategy=${strategy}`, {
+      // Import API configuration
+      const { apiRequest } = await import('../config/api');
+      
+      console.log('🌐 Making API request to backend...');
+      console.log('📤 Request body:', requestBody);
+      
+      const res = await apiRequest(`/backtest?strategy=${strategy}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(requestBody)
       })
       
@@ -352,8 +354,19 @@ export default function Home() {
       const data = await res.json()
       setResult(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to run backtest. Please check your connection and try again.')
-      console.error('Backtest error:', err)
+      console.error('Backtest error:', err);
+      
+      let errorMessage = 'Failed to run backtest. Please check your connection and try again.';
+      
+      if (err instanceof Error) {
+        if (err.message === 'Failed to fetch') {
+          errorMessage = 'Failed to connect to the backend API. Please ensure the backend server is running on http://localhost:8000';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false)
     }
@@ -396,6 +409,8 @@ export default function Home() {
           {/* Configuration Panel */}
           <div className="lg:col-span-2 space-y-6">
             
+
+
             {/* Strategy Selection */}
             <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-6">
               <h2 className="text-xl font-semibold text-white mb-4 flex items-center">

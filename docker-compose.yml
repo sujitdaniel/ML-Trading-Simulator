@@ -1,6 +1,4 @@
 # docker-compose.yml
-version: '3.8'
-
 services:
   backend:
     build:
@@ -12,18 +10,24 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
+    networks:
+      - algonex-network
 
   frontend:
     build:
       context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://backend:8000
     ports:
       - "3000:3000"
-    working_dir: /app/frontend
-    # Only mount source code, not node_modules or .next (see .dockerignore)
-    # volumes:
-    #   - ./frontend:/app/frontend
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://backend:8000
     depends_on:
       - backend
+    networks:
+      - algonex-network
+
+networks:
+  algonex-network:
+    driver: bridge
