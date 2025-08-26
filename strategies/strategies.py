@@ -845,8 +845,8 @@ class DefaultStrategy(Strategy):
 
         # Generate signal when short MA crosses above long MA
         # Get the index labels starting from short_window position
-        start_idx = signals.index[self.short_window]
-        signals.loc[start_idx:, 'signal'] = (signals['short_mavg'][self.short_window:] > signals['long_mavg'][self.short_window:]).astype(float)
+        start_idx = signals.index[self.long_window]
+        signals.loc[start_idx:, 'signal'] = (signals['short_mavg'][self.long_window:] > signals['long_mavg'][self.long_window:]).astype(float)
         
         # Generate trading orders (1 for buy, -1 for sell)
         signals["positions"] = signals["signal"].diff()
@@ -879,8 +879,8 @@ class MovingAverageCrossover(Strategy):
 
         # Generate signal when short MA crosses above long MA
         # Get the index labels starting from short_window position
-        start_idx = signals.index[self.short_window]
-        signals.loc[start_idx:, 'signal'] = (signals['short_mavg'][self.short_window:] > signals['long_mavg'][self.short_window:]).astype(float)
+        start_idx = signals.index[self.long_window]
+        signals.loc[start_idx:, 'signal'] = (signals['short_mavg'][self.long_window:] > signals['long_mavg'][self.long_window:]).astype(float)
         
         # Generate trading orders (1 for buy, -1 for sell)
         signals["positions"] = signals["signal"].diff()

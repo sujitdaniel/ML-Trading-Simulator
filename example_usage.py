@@ -17,6 +17,16 @@ from strategies.engine import TradingEngine, StrategyBuilder
 import pandas as pd
 
 
+def print_performance_metrics(metrics: dict):
+    """Prints performance metrics in a readable format."""
+    print("   Performance Metrics:")
+    for key, value in metrics.items():
+        if isinstance(value, float):
+            print(f"     {key.replace('_', ' ').title()}: {value:.4f}")
+        else:
+            print(f"     {key.replace('_', ' ').title()}: {value}")
+    print()
+
 def run_strategy_analysis(ticker: str = "AAPL"):
     """Run analysis with different strategy combinations."""
     
@@ -26,21 +36,21 @@ def run_strategy_analysis(ticker: str = "AAPL"):
     print("1. Default Strategy (Moving Average Crossover)")
     default_strategy = StrategyBuilder.create_default_strategy()
     engine = TradingEngine(default_strategy, ticker)
-    trades = engine.run()
+    engine.run()
     summary = engine.get_trade_summary()
     print(f"   Total trades: {summary['total_trades']}")
-    print(f"   Buy trades: {summary['buy_trades']}")
-    print(f"   Sell trades: {summary['sell_trades']}\n")
+    metrics = engine.calculate_performance_metrics()
+    print_performance_metrics(metrics)
     
     # Example 2: Single RSI Strategy
     print("2. Single RSI Strategy")
     rsi_strategy = StrategyBuilder.create_single_indicator_strategy('rsi', period=14)
     engine = TradingEngine(rsi_strategy, ticker)
-    trades = engine.run()
+    engine.run()
     summary = engine.get_trade_summary()
     print(f"   Total trades: {summary['total_trades']}")
-    print(f"   Buy trades: {summary['buy_trades']}")
-    print(f"   Sell trades: {summary['sell_trades']}\n")
+    metrics = engine.calculate_performance_metrics()
+    print_performance_metrics(metrics)
     
     # Example 3: Dual Indicator Strategy (MA + RSI)
     print("3. Dual Indicator Strategy (Moving Average + RSI)")
@@ -51,11 +61,11 @@ def run_strategy_analysis(ticker: str = "AAPL"):
         ind2_period=14
     )
     engine = TradingEngine(dual_strategy, ticker)
-    trades = engine.run()
+    engine.run()
     summary = engine.get_trade_summary()
     print(f"   Total trades: {summary['total_trades']}")
-    print(f"   Buy trades: {summary['buy_trades']}")
-    print(f"   Sell trades: {summary['sell_trades']}\n")
+    metrics = engine.calculate_performance_metrics()
+    print_performance_metrics(metrics)
     
     # Example 4: Triple Indicator Strategy
     print("4. Triple Indicator Strategy (MA + RSI + Bollinger Bands)")
@@ -67,11 +77,11 @@ def run_strategy_analysis(ticker: str = "AAPL"):
         ind3_window=20, ind3_num_std=2
     )
     engine = TradingEngine(triple_strategy, ticker)
-    trades = engine.run()
+    engine.run()
     summary = engine.get_trade_summary()
     print(f"   Total trades: {summary['total_trades']}")
-    print(f"   Buy trades: {summary['buy_trades']}")
-    print(f"   Sell trades: {summary['sell_trades']}\n")
+    metrics = engine.calculate_performance_metrics()
+    print_performance_metrics(metrics)
     
     # Example 5: Mean Reversion Strategy
     print("5. Mean Reversion Strategy")
@@ -80,11 +90,11 @@ def run_strategy_analysis(ticker: str = "AAPL"):
         window=20, entry_z=1.5, exit_z=0.5
     )
     engine = TradingEngine(mean_rev_strategy, ticker)
-    trades = engine.run()
+    engine.run()
     summary = engine.get_trade_summary()
     print(f"   Total trades: {summary['total_trades']}")
-    print(f"   Buy trades: {summary['buy_trades']}")
-    print(f"   Sell trades: {summary['sell_trades']}\n")
+    metrics = engine.calculate_performance_metrics()
+    print_performance_metrics(metrics)
     
     # Example 6: Money Flow Index Strategy
     print("6. Money Flow Index Strategy")
@@ -93,11 +103,11 @@ def run_strategy_analysis(ticker: str = "AAPL"):
         period=14, overbought=80, oversold=20
     )
     engine = TradingEngine(mfi_strategy, ticker)
-    trades = engine.run()
+    engine.run()
     summary = engine.get_trade_summary()
     print(f"   Total trades: {summary['total_trades']}")
-    print(f"   Buy trades: {summary['buy_trades']}")
-    print(f"   Sell trades: {summary['sell_trades']}\n")
+    metrics = engine.calculate_performance_metrics()
+    print_performance_metrics(metrics)
     
     # Example 7: Parabolic SAR Strategy
     print("7. Parabolic SAR Strategy")
@@ -106,11 +116,11 @@ def run_strategy_analysis(ticker: str = "AAPL"):
         acceleration=0.02, maximum=0.2
     )
     engine = TradingEngine(sar_strategy, ticker)
-    trades = engine.run()
+    engine.run()
     summary = engine.get_trade_summary()
     print(f"   Total trades: {summary['total_trades']}")
-    print(f"   Buy trades: {summary['buy_trades']}")
-    print(f"   Sell trades: {summary['sell_trades']}\n")
+    metrics = engine.calculate_performance_metrics()
+    print_performance_metrics(metrics)
     
     # Example 8: Chande Momentum Oscillator Strategy
     print("8. Chande Momentum Oscillator Strategy")
@@ -119,11 +129,11 @@ def run_strategy_analysis(ticker: str = "AAPL"):
         period=14, overbought=50, oversold=-50
     )
     engine = TradingEngine(cmo_strategy, ticker)
-    trades = engine.run()
+    engine.run()
     summary = engine.get_trade_summary()
     print(f"   Total trades: {summary['total_trades']}")
-    print(f"   Buy trades: {summary['buy_trades']}")
-    print(f"   Sell trades: {summary['sell_trades']}\n")
+    metrics = engine.calculate_performance_metrics()
+    print_performance_metrics(metrics)
 
 
 def demonstrate_custom_strategy():
@@ -142,12 +152,12 @@ def demonstrate_custom_strategy():
     )
     
     engine = TradingEngine(custom_strategy, "AAPL")
-    trades = engine.run()
+    engine.run()
     summary = engine.get_trade_summary()
     
     print(f"   Total trades: {summary['total_trades']}")
-    print(f"   Buy trades: {summary['buy_trades']}")
-    print(f"   Sell trades: {summary['sell_trades']}")
+    metrics = engine.calculate_performance_metrics()
+    print_performance_metrics(metrics)
     
     # Show some signal details
     signals = engine.get_signals()

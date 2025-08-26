@@ -18,17 +18,18 @@ from ml.logistic_model import generate_ml_signals
 
 
 class TradingEngine:
-    def __init__(self, strategy: Strategy, ticker: str, data_file: str = None, initial_capital: float = 10000.0, ml_func=None):
+    def __init__(self, strategy: Strategy, ticker: str, data_file: str = None, initial_capital: float = 10000.0, ml_func=None, data: pd.DataFrame = None):
         self.strategy = strategy
         self.ticker = ticker
         self.data_file = data_file
         self.initial_capital = initial_capital
-        self.data = None
+        self.data = data
         self.trades = []
         self.signals = None
         self.portfolio_value = initial_capital
         self.ml_func = ml_func
-        self._load_data()
+        if self.data is None:
+            self._load_data()
 
     def _load_data(self) -> None:
         """Load and preprocess data efficiently."""
