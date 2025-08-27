@@ -82,20 +82,18 @@ class TradingEngine:
         print(f"Running strategy on {len(self.data)} data points")
         print(f"Data range: {self.data.index.min()} to {self.data.index.max()}")
         
-        # Handle ML strategy separately
-        if strategy_type == "ml":
-            print(f"Running ML strategy ({self.ml_func.__name__ if self.ml_func else 'Logistic Regression'})")
-            if self.ml_func is not None:
-                self.signals, self.ml_metrics = self.ml_func(self.data)
-            else:
-                from ml.logistic_model import generate_ml_signals
-                self.signals, self.ml_metrics = generate_ml_signals(self.data)
-            # ML strategy uses 'ml_signal' column instead of 'positions'
+        # Pass ml_func to strategy if it's a hybrid strategy
+        if isinstance(self.strategy, HybridMLIndicatorStrategy):
+            self.strategy.ml_func = self.ml_func
+            print(f"Running Hybrid ML strategy ({self.ml_func.__name__ if self.ml_func else 'Logistic Regression'})")
+
+        # Generate signals using the strategy
+        self.signals = self.strategy.generate_signals(self.data)
+
+        # Extract trades
+        if 'ml_signal' in self.signals.columns:
             self.trades = self._extract_trades_ml()
         else:
-            # Generate signals using traditional strategy
-            self.signals = self.strategy.generate_signals(self.data)
-            # Efficiently extract trades using vectorized operations
             self.trades = self._extract_trades()
         
         return self.trades
@@ -109,8 +107,8 @@ class TradingEngine:
         positions = self.signals['positions']
         
         # Find buy and sell signals efficiently
-        buy_signals = positions == 1.0
-        sell_signals = positions == -1.0
+        buy_signals = positions > 0
+        sell_signals = positions < 0
         
         # Get indices where signals occur
         buy_indices = buy_signals[buy_signals].index
@@ -118,24 +116,30 @@ class TradingEngine:
         
         # Create trades efficiently
         for idx in buy_indices:
-            trades.append(("BUY", idx, self.data.loc[idx, "Close"]))
-        
+            trade_date_loc = self.data.index.get_loc(idx) + 1
+            if trade_date_loc < len(self.data.index):
+                trade_date = self.data.index[trade_date_loc]
+                trades.append(("BUY", trade_date, self.data.loc[trade_date, "Open"]))
+
         for idx in sell_indices:
-            trades.append(("SELL", idx, self.data.loc[idx, "Close"]))
-        
+            trade_date_loc = self.data.index.get_loc(idx) + 1
+            if trade_date_loc < len(self.data.index):
+                trade_date = self.data.index[trade_date_loc]
+                trades.append(("SELL", trade_date, self.data.loc[trade_date, "Open"]))
+
         return trades
     
     def _extract_trades_ml(self) -> List[Tuple[str, pd.Timestamp, float]]:
         """Extract trades from ML strategy signals."""
-        if self.signals is None or 'ml_signal' not in self.signals.columns:
+        if self.signals is None or 'positions' not in self.signals.columns:
             return []
         
         trades = []
-        ml_signals = self.signals['ml_signal']
+        positions = self.signals['positions']
         
         # Find buy and sell signals efficiently
-        buy_signals = ml_signals == 1
-        sell_signals = ml_signals == -1
+        buy_signals = positions > 0
+        sell_signals = positions < 0
         
         # Get indices where signals occur
         buy_indices = buy_signals[buy_signals].index
@@ -143,10 +147,16 @@ class TradingEngine:
         
         # Create trades efficiently
         for idx in buy_indices:
-            trades.append(("BUY", idx, self.data.loc[idx, "Close"]))
+            trade_date_loc = self.data.index.get_loc(idx) + 1
+            if trade_date_loc < len(self.data.index):
+                trade_date = self.data.index[trade_date_loc]
+                trades.append(("BUY", trade_date, self.data.loc[trade_date, "Open"]))
         
         for idx in sell_indices:
-            trades.append(("SELL", idx, self.data.loc[idx, "Close"]))
+            trade_date_loc = self.data.index.get_loc(idx) + 1
+            if trade_date_loc < len(self.data.index):
+                trade_date = self.data.index[trade_date_loc]
+                trades.append(("SELL", trade_date, self.data.loc[trade_date, "Open"]))
         
         return trades
     

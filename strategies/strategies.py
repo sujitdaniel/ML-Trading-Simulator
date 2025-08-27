@@ -69,8 +69,10 @@ class RSIIndicator(Indicator):
         signals = pd.Series(0.0, index=data.index)
         rsi = self.calculate(data)
         
-        signals.loc[rsi < self.oversold] = 1.0  # Buy
-        signals.loc[rsi > self.overbought] = -1.0  # Sell
+        # Buy signal: RSI crosses up through the oversold line
+        signals.loc[(rsi.shift(1) <= self.oversold) & (rsi > self.oversold)] = 1.0
+        # Sell signal: RSI crosses down through the overbought line
+        signals.loc[(rsi.shift(1) >= self.overbought) & (rsi < self.overbought)] = -1.0
         return signals
 
 
@@ -95,9 +97,10 @@ class BollingerBandsIndicator(Indicator):
         signals = pd.Series(0.0, index=data.index)
         bb_position = self.calculate(data)
         
-        # Buy when price is near lower band, sell when near upper band
-        signals.loc[bb_position < 0.2] = 1.0  # Near lower band
-        signals.loc[bb_position > 0.8] = -1.0  # Near upper band
+        # Buy signal: bb_position crosses up through the lower band
+        signals.loc[(bb_position.shift(1) <= 0.2) & (bb_position > 0.2)] = 1.0
+        # Sell signal: bb_position crosses down through the upper band
+        signals.loc[(bb_position.shift(1) >= 0.8) & (bb_position < 0.8)] = -1.0
         return signals
 
 
@@ -119,9 +122,10 @@ class MeanReversionIndicator(Indicator):
         signals = pd.Series(0.0, index=data.index)
         z_score = self.calculate(data)
         
-        # Buy when z-score < -entry_z, sell when z-score > entry_z
-        signals.loc[z_score < -self.entry_z] = 1.0
-        signals.loc[z_score > self.entry_z] = -1.0
+        # Buy signal: z_score crosses up through -entry_z
+        signals.loc[(z_score.shift(1) <= -self.entry_z) & (z_score > -self.entry_z)] = 1.0
+        # Sell signal: z_score crosses down through entry_z
+        signals.loc[(z_score.shift(1) >= self.entry_z) & (z_score < self.entry_z)] = -1.0
         return signals
 
 
@@ -165,9 +169,10 @@ class MoneyFlowIndexIndicator(Indicator):
         signals = pd.Series(0.0, index=data.index)
         mfi = self.calculate(data)
         
-        # Buy when MFI is oversold, sell when overbought
-        signals.loc[mfi < self.oversold] = 1.0  # Buy signal
-        signals.loc[mfi > self.overbought] = -1.0  # Sell signal
+        # Buy signal: mfi crosses up through the oversold line
+        signals.loc[(mfi.shift(1) <= self.oversold) & (mfi > self.oversold)] = 1.0
+        # Sell signal: mfi crosses down through the overbought line
+        signals.loc[(mfi.shift(1) >= self.overbought) & (mfi < self.overbought)] = -1.0
         return signals
 
 
@@ -285,10 +290,10 @@ class ChandeMomentumOscillatorIndicator(Indicator):
         signals = pd.Series(0.0, index=data.index)
         cmo = self.calculate(data)
         
-        # Generate signals based on CMO levels
-        # Buy when CMO is oversold (negative), Sell when overbought (positive)
-        signals.loc[cmo < self.oversold] = 1.0  # Buy signal
-        signals.loc[cmo > self.overbought] = -1.0  # Sell signal
+        # Buy signal: cmo crosses up through the oversold line
+        signals.loc[(cmo.shift(1) <= self.oversold) & (cmo > self.oversold)] = 1.0
+        # Sell signal: cmo crosses down through the overbought line
+        signals.loc[(cmo.shift(1) >= self.overbought) & (cmo < self.overbought)] = -1.0
         return signals
 
 
@@ -319,9 +324,10 @@ class StochasticOscillatorIndicator(Indicator):
         signals = pd.Series(0.0, index=data.index)
         k_percent = self.calculate(data)
         
-        # Generate signals based on overbought/oversold levels
-        signals.loc[k_percent < self.oversold] = 1.0  # Buy signal
-        signals.loc[k_percent > self.overbought] = -1.0  # Sell signal
+        # Buy signal: k_percent crosses up through the oversold line
+        signals.loc[(k_percent.shift(1) <= self.oversold) & (k_percent > self.oversold)] = 1.0
+        # Sell signal: k_percent crosses down through the overbought line
+        signals.loc[(k_percent.shift(1) >= self.overbought) & (k_percent < self.overbought)] = -1.0
         return signals
 
 
@@ -351,9 +357,10 @@ class WilliamsPercentRangeIndicator(Indicator):
         signals = pd.Series(0.0, index=data.index)
         williams_r = self.calculate(data)
         
-        # Generate signals (note: Williams %R is inverted)
-        signals.loc[williams_r < self.oversold] = 1.0  # Buy signal
-        signals.loc[williams_r > self.overbought] = -1.0  # Sell signal
+        # Buy signal: williams_r crosses up through the oversold line
+        signals.loc[(williams_r.shift(1) <= self.oversold) & (williams_r > self.oversold)] = 1.0
+        # Sell signal: williams_r crosses down through the overbought line
+        signals.loc[(williams_r.shift(1) >= self.overbought) & (williams_r < self.overbought)] = -1.0
         return signals
 
 
@@ -527,9 +534,10 @@ class ATRIndicator(Indicator):
         upper_band = close + (self.multiplier * atr)
         lower_band = close - (self.multiplier * atr)
         
-        # Generate signals based on price vs bands
-        signals.loc[close < lower_band] = 1.0  # Buy signal
-        signals.loc[close > upper_band] = -1.0  # Sell signal
+        # Buy signal: close crosses up through the lower band
+        signals.loc[(close.shift(1) <= lower_band.shift(1)) & (close > lower_band)] = 1.0
+        # Sell signal: close crosses down through the upper band
+        signals.loc[(close.shift(1) >= upper_band.shift(1)) & (close < upper_band)] = -1.0
         return signals
 
 
@@ -555,9 +563,10 @@ class IBSIndicator(Indicator):
         signals = pd.Series(0.0, index=data.index)
         ibs = self.calculate(data)
         
-        # Generate signals based on IBS levels
-        signals.loc[ibs < self.oversold] = 1.0  # Buy signal
-        signals.loc[ibs > self.overbought] = -1.0  # Sell signal
+        # Buy signal: ibs crosses up through the oversold line
+        signals.loc[(ibs.shift(1) <= self.oversold) & (ibs > self.oversold)] = 1.0
+        # Sell signal: ibs crosses down through the overbought line
+        signals.loc[(ibs.shift(1) >= self.overbought) & (ibs < self.overbought)] = -1.0
         return signals
 
 
@@ -588,9 +597,10 @@ class FibonacciRetracementIndicator(Indicator):
         fib_level = self.calculate(data)
         close = data['Close']
         
-        # Generate signals based on price vs Fibonacci level
-        signals.loc[close < fib_level] = 1.0  # Buy signal
-        signals.loc[close > fib_level] = -1.0  # Sell signal
+        # Buy signal: close crosses up through the fib_level
+        signals.loc[(close.shift(1) <= fib_level.shift(1)) & (close > fib_level)] = 1.0
+        # Sell signal: close crosses down through the fib_level
+        signals.loc[(close.shift(1) >= fib_level.shift(1)) & (close < fib_level)] = -1.0
         return signals
 
 
@@ -710,9 +720,10 @@ class StandardDeviationIndicator(Indicator):
         upper_band = mean + (self.multiplier * std)
         lower_band = mean - (self.multiplier * std)
         
-        # Generate signals based on price vs bands
-        signals.loc[close < lower_band] = 1.0  # Buy signal
-        signals.loc[close > upper_band] = -1.0  # Sell signal
+        # Buy signal: close crosses up through the lower band
+        signals.loc[(close.shift(1) <= lower_band.shift(1)) & (close > lower_band)] = 1.0
+        # Sell signal: close crosses down through the upper band
+        signals.loc[(close.shift(1) >= upper_band.shift(1)) & (close < upper_band)] = -1.0
         return signals
 
 
@@ -744,9 +755,10 @@ class RVIIndicator(Indicator):
         signals = pd.Series(0.0, index=data.index)
         rvi = self.calculate(data)
         
-        # Generate signals based on RVI levels
-        signals.loc[rvi < self.oversold] = 1.0  # Buy signal
-        signals.loc[rvi > self.overbought] = -1.0  # Sell signal
+        # Buy signal: rvi crosses up through the oversold line
+        signals.loc[(rvi.shift(1) <= self.oversold) & (rvi > self.oversold)] = 1.0
+        # Sell signal: rvi crosses down through the overbought line
+        signals.loc[(rvi.shift(1) >= self.overbought) & (rvi < self.overbought)] = -1.0
         return signals
 
 
@@ -845,8 +857,8 @@ class DefaultStrategy(Strategy):
 
         # Generate signal when short MA crosses above long MA
         # Get the index labels starting from short_window position
-        start_idx = signals.index[self.long_window]
-        signals.loc[start_idx:, 'signal'] = (signals['short_mavg'][self.long_window:] > signals['long_mavg'][self.long_window:]).astype(float)
+        start_idx = signals.index[self.short_window]
+        signals.loc[start_idx:, 'signal'] = (signals['short_mavg'][self.short_window:] > signals['long_mavg'][self.short_window:]).astype(float)
         
         # Generate trading orders (1 for buy, -1 for sell)
         signals["positions"] = signals["signal"].diff()
@@ -879,8 +891,8 @@ class MovingAverageCrossover(Strategy):
 
         # Generate signal when short MA crosses above long MA
         # Get the index labels starting from short_window position
-        start_idx = signals.index[self.long_window]
-        signals.loc[start_idx:, 'signal'] = (signals['short_mavg'][self.long_window:] > signals['long_mavg'][self.long_window:]).astype(float)
+        start_idx = signals.index[self.short_window]
+        signals.loc[start_idx:, 'signal'] = (signals['short_mavg'][self.short_window:] > signals['long_mavg'][self.short_window:]).astype(float)
         
         # Generate trading orders (1 for buy, -1 for sell)
         signals["positions"] = signals["signal"].diff()
@@ -997,16 +1009,20 @@ class HybridMLIndicatorStrategy(Strategy):
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
         ml_func = self.ml_func
         if ml_func is None:
-            from ml.logistic_model import generate_ml_signals_logistic
-            ml_func = generate_ml_signals_logistic
+            from ml.logistic_model import generate_ml_signals
+            ml_func = generate_ml_signals
+
         signals = pd.DataFrame(index=data.index)
         signals["signal"] = 0.0
-        # Calculate indicator signals
         indicator_signals = []
-        for indicator, weight in self.normalized_indicators:
-            indicator_signal = indicator.generate_signals(data)
-            indicator_signals.append((indicator_signal, weight))
-            signals[f"{indicator.__class__.__name__}_signal"] = indicator_signal
+        if self.ml_weight < 1.0:
+            # Calculate indicator signals
+            for indicator, weight in self.normalized_indicators:
+                if weight > 0:
+                    indicator_signal = indicator.generate_signals(data)
+                    indicator_signals.append((indicator_signal, weight))
+                    signals[f"{indicator.__class__.__name__}_signal"] = indicator_signal
+
         # Calculate ML signal
         ml_df, _ = ml_func(data)
         ml_signal = ml_df.reindex(data.index)["ml_signal"].fillna(0)
@@ -1017,22 +1033,11 @@ class HybridMLIndicatorStrategy(Strategy):
             composite_signal += indicator_signal * weight
         composite_signal += ml_signal * self.normalized_ml_weight
         signals["composite_signal"] = composite_signal
-        # Generate final signals based on threshold and confirmation
-        if self.require_confirmation and len(self.indicators) > 1:
-            buy_agreement = pd.Series(0, index=data.index)
-            sell_agreement = pd.Series(0, index=data.index)
-            for indicator_signal, _ in indicator_signals:
-                buy_agreement += (indicator_signal > 0).astype(int)
-                sell_agreement += (indicator_signal < 0).astype(int)
-            # ML signal counts as one vote
-            buy_agreement += (ml_signal > 0).astype(int)
-            sell_agreement += (ml_signal < 0).astype(int)
-            min_agreement = max(1, (len(self.indicators) + 1) // 2)
-            signals.loc[(composite_signal > self.signal_threshold) & (buy_agreement >= min_agreement), "signal"] = 1.0
-            signals.loc[(composite_signal < -self.signal_threshold) & (sell_agreement >= min_agreement), "signal"] = -1.0
-        else:
-            signals.loc[composite_signal > self.signal_threshold, "signal"] = 1.0
-            signals.loc[composite_signal < -self.signal_threshold, "signal"] = -1.0
+
+        # Buy signal: composite_signal crosses up through the signal_threshold
+        signals.loc[(composite_signal.shift(1) < self.signal_threshold) & (composite_signal >= self.signal_threshold)] = 1.0
+        # Sell signal: composite_signal crosses down through -signal_threshold
+        signals.loc[(composite_signal.shift(1) > -self.signal_threshold) & (composite_signal <= -self.signal_threshold)] = -1.0
+
         signals["positions"] = signals["signal"].diff()
         return signals
-
