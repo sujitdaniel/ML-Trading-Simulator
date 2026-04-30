@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example usage of the Algonex trading strategy system.
+Example usage of the ML Trading Simulator strategy system.
 
 This script demonstrates how to:
 1. Use the default strategy
@@ -30,7 +30,7 @@ def print_performance_metrics(metrics: dict):
 def run_strategy_analysis(ticker: str = "AAPL"):
     """Run analysis with different strategy combinations."""
     
-    print(f"=== Algonex Strategy Analysis for {ticker} ===\n")
+    print(f"=== ML Trading Simulator Strategy Analysis for {ticker} ===\n")
     
     # Example 1: Default Strategy
     print("1. Default Strategy (Moving Average Crossover)")
@@ -224,7 +224,7 @@ def show_available_indicators():
 
 
 if __name__ == "__main__":
-    print("Algonex Trading Strategy System - Example Usage\n")
+    print("ML Trading Simulator - Strategy Example Usage\n")
     
     # Show available indicators
     show_available_indicators()
