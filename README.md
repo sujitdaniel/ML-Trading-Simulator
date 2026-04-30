@@ -150,16 +150,6 @@ curl -X POST "http://127.0.0.1:8000/backtest?strategy=ma" \
 python example_usage.py
 ```
 
-## My Contributions
-
-- Refined and published this portfolio-ready version as **ML Trading Simulator**.
-- Consolidated documentation to better explain setup, architecture, and usage flows.
-- Improved project presentation for recruiter and reviewer readability while preserving core project behavior.
-
-## Project Timeline
-
-Originally built collaboratively as Algonex. This repository is the portfolio-ready version published as ML Trading Simulator.
-
 ## Future Improvements
 
 - Expand automated test coverage for API edge cases and strategy validation.
