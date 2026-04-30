@@ -1,88 +1,121 @@
-# 🐳 Docker Troubleshooting Guide for Algonex
+# Docker Troubleshooting Guide
 
-## Quick Start
+Use this guide when Dockerized frontend/backend integration is not working as expected.
+
+## Baseline Run Commands
+
 ```bash
-# Build and run
-docker-compose up --build
-
-# Or use the batch script
-docker-run.bat
+docker compose build --no-cache
+docker compose up
 ```
 
-## Common Issues & Solutions
+Legacy equivalent:
 
-### 1. "Failed to fetch" Error
-**Problem**: Frontend can't connect to backend
-**Solution**: 
-- Ensure both containers are running: `docker-compose ps`
-- Check backend logs: `docker-compose logs backend`
-- Check frontend logs: `docker-compose logs frontend`
-
-### 2. Port Already in Use
-**Problem**: Ports 3000 or 8000 are already occupied
-**Solution**:
 ```bash
-# Stop existing containers
-docker-compose down
-
-# Kill processes using the ports
-netstat -ano | findstr :3000
-netstat -ano | findstr :8000
-taskkill /PID <PID> /F
-```
-
-### 3. CORS Issues
-**Problem**: Browser blocks requests due to CORS
-**Solution**: 
-- Backend CORS is configured for Docker networking
-- Frontend uses `http://backend:8000` in Docker
-- Check browser console for specific errors
-
-### 4. Container Build Failures
-**Problem**: Docker build fails
-**Solution**:
-```bash
-# Clean build
 docker-compose build --no-cache
+docker-compose up
+```
 
-# Check Dockerfile syntax
+## Confirm Service Health First
+
+```bash
+docker compose ps
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+Expected access points:
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8000`
+- Backend health endpoint: `http://localhost:8000/health`
+
+## Common Issues and Fixes
+
+### 1) "Failed to fetch" from frontend
+
+Likely cause: frontend cannot reach backend container.
+
+Checks:
+
+- Confirm both services are up: `docker compose ps`
+- Confirm backend is reachable from host: `http://localhost:8000/health`
+- Confirm compose env is set to `NEXT_PUBLIC_API_URL=http://backend:8000`
+
+Fix:
+
+- Restart stack:
+
+```bash
+docker compose down
+docker compose up --build
+```
+
+### 2) Port 3000 or 8000 already in use
+
+Likely cause: another local process already binds these ports.
+
+Checks and fix (macOS/Linux):
+
+```bash
+lsof -i :3000
+lsof -i :8000
+```
+
+Stop or reconfigure conflicting processes, then restart compose.
+
+### 3) CORS-related browser errors
+
+Likely cause: request origin/API URL mismatch.
+
+Checks:
+
+- Frontend in Docker should call `http://backend:8000` (internal network).
+- Browser accesses frontend at `http://localhost:3000`.
+- Backend CORS list in `api/main.py` includes local dev origins.
+
+### 4) Build failures
+
+Likely cause: stale cache, dependency mismatch, or interrupted install.
+
+Fix:
+
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+You can also build services separately for clearer errors:
+
+```bash
 docker build -f Dockerfile.backend .
 docker build -f frontend/Dockerfile ./frontend
 ```
 
-## Network Configuration
-- **Frontend**: `http://localhost:3000` (external access)
-- **Backend**: `http://localhost:8000` (external access)
-- **Internal**: Frontend → Backend via `http://backend:8000`
+### 5) Frontend native/dependency module issues
 
-## Environment Variables
-- `NEXT_PUBLIC_API_URL=http://backend:8000` (Docker)
-- `NEXT_PUBLIC_API_URL=http://localhost:8000` (Local dev)
+Likely cause: stale host artifacts mixed with container installs.
 
-## Useful Commands
+Fix:
+
 ```bash
-# View logs
-docker-compose logs -f
-
-# Restart services
-docker-compose restart
-
-# Stop all services
-docker-compose down
-
-# Remove all containers and rebuild
-docker-compose down --rmi all
-docker-compose up --build
+rm -rf frontend/node_modules frontend/.next
+docker compose build --no-cache
 ```
 
-## Testing the Connection
-1. Open http://localhost:3000 in browser
-2. Use the "Test API Connection" button
-3. Check browser console for any errors
-4. Check Docker logs for backend errors
+## Frontend-Backend Connection Model
 
-## If Still Having Issues
-1. Check Docker Desktop is running
-2. Ensure no other services use ports 3000/8000
-3. Try different ports in docker-compose.yml
-4. Check firewall/antivirus settings
+- Host/browser -> Frontend: `http://localhost:3000`
+- Host/browser -> Backend: `http://localhost:8000`
+- Frontend container -> Backend container: `http://backend:8000`
+
+If this mapping changes, update both `docker-compose.yml` and frontend API configuration accordingly.
+
+## Quick Troubleshooting Loop
+
+1. `docker compose ps`
+2. `docker compose logs -f backend`
+3. `docker compose logs -f frontend`
+4. Hit `http://localhost:8000/health`
+5. Reload `http://localhost:3000`
