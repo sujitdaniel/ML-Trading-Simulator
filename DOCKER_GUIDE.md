@@ -1,6 +1,6 @@
 # ML Trading Simulator Docker Guide
 
-This guide explains how to run the backend and frontend together with Docker Compose.
+This guide explains how to run the backend and frontend together with Docker Compose for ML Trading Simulator.
 
 ## Prerequisites
 

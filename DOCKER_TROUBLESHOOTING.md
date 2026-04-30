@@ -1,6 +1,6 @@
 # Docker Troubleshooting Guide
 
-Use this guide when Dockerized frontend/backend integration is not working as expected.
+Use this guide when Dockerized frontend/backend integration is not working as expected in ML Trading Simulator.
 
 ## Baseline Run Commands
 

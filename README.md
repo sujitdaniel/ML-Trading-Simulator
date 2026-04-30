@@ -30,6 +30,13 @@ This is not presented as a production trading system or a guarantee of trading p
 - Frontend: Next.js, React, TypeScript, Tailwind CSS
 - Tooling: Docker, Docker Compose, pytest
 
+## Documentation Map
+
+- `FRONTEND_BACKEND_GUIDE.md` - frontend/backend API flow and integration usage.
+- `STRATEGY_USAGE.md` - strategy builder patterns and backtest request examples.
+- `DOCKER_GUIDE.md` - Docker setup, run commands, ports, and common issues.
+- `DOCKER_TROUBLESHOOTING.md` - focused troubleshooting workflow for containerized runs.
+
 ## Project Structure
 
 ```text
